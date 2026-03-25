@@ -31,8 +31,8 @@ The following JSON processing tasks will be implemented (for now):
 
 Performance will be evaluated using:
 
-- **Java:** JMH (Java Microbenchmark Harness)
-- **Python:** pyperf
+- **Java:** `JMH` (Java Microbenchmark Harness)
+- **Python:** `pyperf`
 
 Benchmarks will be executed on **synthetically generated JSON datasets** of varying sizes.
 
@@ -54,4 +54,4 @@ The project aims to provide insights into:
 
 - Performance differences between single-threaded and multi-threaded processing
 - Impact of implementation language
-- How custom solutions compare to *jq* under controlled conditions
+- How custom solutions compare to `jq` under controlled conditions
