@@ -9,10 +9,7 @@ public class LengthCommand implements Command
 {
 
 	@Override
-	public String name()
-    {
-		return "length";
-	}
+	public String name() { return "length"; }
 
 	@Override
 	public JsonNode execute(JsonNode input, List<String> args)

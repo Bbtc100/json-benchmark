@@ -3,6 +3,7 @@ package benchmark;
 import benchmark.commands.Command;
 import benchmark.commands.FilterCommand;
 import benchmark.commands.LengthCommand;
+import benchmark.commands.MapCommand;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -35,6 +36,7 @@ public class Main {
         Map<String, Command> commands = new HashMap<>();
         register(commands, new LengthCommand());
         register(commands, new FilterCommand());
+        register(commands, new MapCommand());
 
         // TODO: keys (sorted), has(key), map(f), sort (sort_by(exp)), max/min (max_by(exp))
 
