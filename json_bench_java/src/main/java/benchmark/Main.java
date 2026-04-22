@@ -1,5 +1,6 @@
 package benchmark;
 
+import benchmark.multi.MultiEngine;
 import benchmark.single.SingleEngine;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +15,7 @@ public class Main {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final SingleEngine SINGLE_ENGINE = new SingleEngine();
+    private static final MultiEngine MULTI_ENGINE = new MultiEngine();
 
     public static void main(String[] args) {
         if (args.length == 0)
@@ -31,17 +33,17 @@ public class Main {
             return;
         }
 
-        if (!"single".equals(firstArg))
+        if (!isKnownEngine(firstArg))
         {
             System.out.println("Unknown engine: " + firstArg);
-            System.out.println("Available engines: single");
+            System.out.println("Available engines: single, multi");
             System.out.println("Use 'help' or 'h' to see full command documentation.");
             return;
         }
 
         if (args.length < 2)
         {
-            System.out.println("Missing command for engine: single");
+            System.out.println("Missing command for engine: " + firstArg);
             System.out.println("Use 'help' or 'h' for usage details.");
             return;
         }
@@ -69,7 +71,7 @@ public class Main {
         try
         {
             JsonNode input = MAPPER.readTree(inputPath.toFile());
-            JsonNode output = SINGLE_ENGINE.execute(commandName, input, commandArgs);
+            JsonNode output = execute(firstArg, commandName, input, commandArgs);
             System.out.println(output.toString());
 
         } catch (IOException e)
@@ -82,12 +84,29 @@ public class Main {
             if (e.getMessage() != null && e.getMessage().startsWith("Unknown command:"))
             {
                 System.out.println(e.getMessage());
-                System.out.println("Available commands for single: " + String.join(", ", SINGLE_ENGINE.commandNames()));
+                System.out.println("Available commands for " + firstArg + ": " + String.join(", ", commandNames(firstArg)));
                 System.out.println("Use 'help' or 'h' to see full command documentation.");
                 return;
             }
             System.out.println("Command failed: " + e.getMessage());
         }
+    }
+
+    private static boolean isKnownEngine(String engineName)
+    {
+        return "single".equals(engineName) || "multi".equals(engineName);
+    }
+
+    private static JsonNode execute(String engineName, String commandName, JsonNode input, List<String> commandArgs)
+    {
+        return "multi".equals(engineName)
+                ? MULTI_ENGINE.execute(commandName, input, commandArgs)
+                : SINGLE_ENGINE.execute(commandName, input, commandArgs);
+    }
+
+    private static List<String> commandNames(String engineName)
+    {
+        return List.copyOf("multi".equals(engineName) ? MULTI_ENGINE.commandNames() : SINGLE_ENGINE.commandNames());
     }
 
     private static void printHelp()
@@ -97,6 +116,8 @@ public class Main {
         System.out.println("Engines:");
         System.out.println("  single");
         System.out.println("    Runs commands in single-threaded mode.");
+        System.out.println("  multi");
+        System.out.println("    Runs commands in parallel mode.");
         System.out.println();
         System.out.println("Commands:");
         System.out.println("  single length <file> [expr]");
@@ -113,6 +134,9 @@ public class Main {
         System.out.println("    Applies map_values-like transformation to each object value or array element.");
         System.out.println("    Supports arithmetic expressions like +1, -2, *3, /4, ^0.5.");
         System.out.println("    You may also pass a filter expression (e.g. .name). Default is '.'.");
+        System.out.println();
+        System.out.println("  multi length|filter|map <file> [expr]");
+        System.out.println("    Same command surface as single, executed by the multi engine.");
         System.out.println();
         System.out.println("  help | h");
         System.out.println("    Shows this message.");
