@@ -1,4 +1,4 @@
-package benchmark.commands;
+package benchmark.core.commands;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -94,4 +94,5 @@ class MapCommandTest
         assertTrue(ex.getMessage().contains("must start with '.'"));
     }
 }
+
 

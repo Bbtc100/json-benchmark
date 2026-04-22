@@ -1,4 +1,4 @@
-package benchmark.commands;
+package benchmark.core.commands;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -48,4 +48,5 @@ class LengthCommandTest
         assertEquals(0, command.execute(MAPPER.readTree("true"), null).asLong());
     }
 }
+
 

@@ -22,10 +22,10 @@ class MainTest
     {
         String output = runMainAndCapture("help");
 
-        assertTrue(output.contains("Usage: <command> <file> [command-args...]"));
-        assertTrue(output.contains("length <file>"));
-        assertTrue(output.contains("filter <file> [expr]"));
-        assertTrue(output.contains("map <file> [expr]"));
+        assertTrue(output.contains("Usage: <engine> <command> <file> [command-args...]"));
+        assertTrue(output.contains("single length <file>"));
+        assertTrue(output.contains("single filter <file> [expr]"));
+        assertTrue(output.contains("single map <file> [expr]"));
     }
 
     @Test
@@ -38,18 +38,27 @@ class MainTest
     }
 
     @Test
-    void suggestsHelpWhenNoCommandIsProvided()
+    void suggestsHelpWhenNoEngineIsProvided()
     {
         String output = runMainAndCapture();
 
-        assertTrue(output.contains("No command provided."));
+        assertTrue(output.contains("No engine provided."));
         assertTrue(output.contains("Use 'help' or 'h'"));
     }
 
     @Test
-    void suggestsHelpForUnknownCommand()
+    void suggestsHelpForUnknownEngine()
     {
         String output = runMainAndCapture("unknown", "sample.json");
+
+        assertTrue(output.contains("Unknown engine: unknown"));
+        assertTrue(output.contains("Use 'help' or 'h'"));
+    }
+
+    @Test
+    void suggestsHelpForUnknownCommandInSingleEngine()
+    {
+        String output = runMainAndCapture("single", "unknown", "sample.json");
 
         assertTrue(output.contains("Unknown command: unknown"));
         assertTrue(output.contains("Use 'help' or 'h'"));
@@ -60,7 +69,7 @@ class MainTest
     {
         String missingPath = tempDir.resolve("missing.json").toString();
 
-        String output = runMainAndCapture("length", missingPath);
+        String output = runMainAndCapture("single", "length", missingPath);
 
         assertTrue(output.contains("Input file not found:"));
         assertTrue(output.contains(missingPath));
@@ -72,7 +81,7 @@ class MainTest
         Path input = tempDir.resolve("input.json");
         Files.writeString(input, "[1,2,3]", StandardCharsets.UTF_8);
 
-        String output = runMainAndCapture("length", input.toString());
+        String output = runMainAndCapture("single", "length", input.toString());
 
         assertEquals("3", output.trim());
     }

@@ -1,4 +1,4 @@
-package benchmark.commands;
+package benchmark.core.commands;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -82,4 +82,5 @@ class FilterCommandTest
         assertTrue(ex.getMessage().contains("Cannot iterate over non-array"));
     }
 }
+
 

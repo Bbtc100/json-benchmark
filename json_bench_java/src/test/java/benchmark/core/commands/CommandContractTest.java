@@ -1,5 +1,6 @@
-package benchmark.commands;
+package benchmark.core.commands;
 
+import benchmark.core.Command;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -40,4 +41,5 @@ class CommandContractTest
         }
     }
 }
+
 

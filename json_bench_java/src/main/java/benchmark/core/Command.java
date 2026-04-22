@@ -1,4 +1,4 @@
-package benchmark.commands;
+package benchmark.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.List;
