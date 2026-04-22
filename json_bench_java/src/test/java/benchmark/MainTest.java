@@ -86,6 +86,17 @@ class MainTest
         assertEquals("3", output.trim());
     }
 
+    @Test
+    void runsLengthCommandWithFilterExpressionEndToEnd() throws Exception
+    {
+        Path input = tempDir.resolve("input.json");
+        Files.writeString(input, "{\"users\":[1,2,3],\"meta\":true}", StandardCharsets.UTF_8);
+
+        String output = runMainAndCapture("single", "length", input.toString(), ".users");
+
+        assertEquals("3", output.trim());
+    }
+
     private String runMainAndCapture(String... args)
     {
         PrintStream originalOut = System.out;

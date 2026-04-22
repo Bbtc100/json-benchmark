@@ -8,6 +8,7 @@ import java.util.List;
 
 public class LengthCommand implements Command
 {
+	private final FilterCommand filterCommand = new FilterCommand();
 
 	@Override
 	public String name() { return "length"; }
@@ -15,6 +16,16 @@ public class LengthCommand implements Command
 	@Override
 	public JsonNode execute(JsonNode input, List<String> args)
     {
+		if (args != null && !args.isEmpty())
+        {
+			if (args.size() > 1)
+			{
+				throw new IllegalArgumentException("length accepts at most one optional filter expression");
+			}
+
+			input = filterCommand.execute(input, List.of(args.getFirst()));
+		}
+
 		if (input == null)
         {
 			return LongNode.valueOf(0);

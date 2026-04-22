@@ -7,7 +7,7 @@ A small Java JSON processor with jq-like commands and option to use single- or m
 - Engine:
   - `single`
 - Commands:
-  - `single length <file>`
+  - `single length <file> [expr]`
   - `single filter <file> [expr]`
   - `single map <file> [expr]` (map_values style)
   - `help` / `h`
@@ -24,5 +24,5 @@ mvn clean package dependency:copy-dependencies -DincludeScope=runtime
 java -cp "target\classes;target\dependency\*" benchmark.Main help
 
 # Run a command against a JSON file
-java -cp "target\classes;target\dependency\*" benchmark.Main single length sample.json
+java -cp "target\classes;target\dependency\*" benchmark.Main single length sample.json .filter
 ```

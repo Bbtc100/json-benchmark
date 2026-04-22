@@ -99,8 +99,9 @@ public class Main {
         System.out.println("    Runs commands in single-threaded mode.");
         System.out.println();
         System.out.println("Commands:");
-        System.out.println("  single length <file>");
+        System.out.println("  single length <file> [expr]");
         System.out.println("    Returns the length of the JSON input.");
+        System.out.println("    If expr is provided, it is applied as a filter first.");
         System.out.println("    Arrays/objects -> element count, strings -> character count, others -> 0.");
         System.out.println();
         System.out.println("  single filter <file> [expr]");

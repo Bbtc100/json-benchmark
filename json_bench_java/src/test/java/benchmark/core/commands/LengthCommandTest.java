@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class LengthCommandTest
@@ -27,6 +29,12 @@ class LengthCommandTest
     void returnsObjectFieldCount() throws Exception
     {
         assertEquals(3, command.execute(MAPPER.readTree("{\"a\":1,\"b\":2,\"c\":3}"), null).asLong());
+    }
+
+    @Test
+    void canMeasureFilteredValue() throws Exception
+    {
+        assertEquals(3, command.execute(MAPPER.readTree("{\"users\":[1,2,3],\"meta\":true}"), List.of(".users")).asLong());
     }
 
     @Test
