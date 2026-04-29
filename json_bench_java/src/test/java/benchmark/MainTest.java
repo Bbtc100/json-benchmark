@@ -26,6 +26,7 @@ class MainTest
         assertTrue(output.contains("single length <file>"));
         assertTrue(output.contains("single filter <file> [expr]"));
         assertTrue(output.contains("single map <file> [expr]"));
+        assertTrue(output.contains("multi"));
     }
 
     @Test
@@ -93,6 +94,17 @@ class MainTest
         Files.writeString(input, "{\"users\":[1,2,3],\"meta\":true}", StandardCharsets.UTF_8);
 
         String output = runMainAndCapture("single", "length", input.toString(), ".users");
+
+        assertEquals("3", output.trim());
+    }
+
+    @Test
+    void runsLengthCommandInMultiEngineEndToEnd() throws Exception
+    {
+        Path input = tempDir.resolve("input.json");
+        Files.writeString(input, "{\"users\":[1,2,3],\"meta\":true}", StandardCharsets.UTF_8);
+
+        String output = runMainAndCapture("multi", "length", input.toString(), ".users");
 
         assertEquals("3", output.trim());
     }
