@@ -68,6 +68,8 @@ public class Main {
             return;
         }
 
+        long startTime = System.currentTimeMillis();
+
         try
         {
             JsonNode input = MAPPER.readTree(inputPath.toFile());
@@ -89,6 +91,11 @@ public class Main {
                 return;
             }
             System.out.println("Command failed: " + e.getMessage());
+        } finally
+        {
+            long endTime = System.currentTimeMillis();
+            long elapsedTime =  endTime - startTime;
+            System.err.println("\nRuntime: " + elapsedTime + " ms");
         }
     }
 

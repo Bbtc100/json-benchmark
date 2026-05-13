@@ -131,10 +131,7 @@ public class MapCommand implements Command
             try
             {
                 return LongNode.valueOf(normalized.longValueExact());
-            } catch (ArithmeticException ignored)
-            {
-                // Keep as decimal when out of long range.
-            }
+            } catch (ArithmeticException ignored) {}
         }
 
         return DecimalNode.valueOf(normalized);
@@ -144,7 +141,6 @@ public class MapCommand implements Command
     {
         BigDecimal normalizedExponent = exponent.stripTrailingZeros();
 
-        // Use exact BigDecimal pow for integer exponents when possible.
         if (normalizedExponent.scale() <= 0)
         {
             try
@@ -158,10 +154,7 @@ public class MapCommand implements Command
                     throw new IllegalArgumentException("0 cannot be raised to a negative power.");
 
                 return BigDecimal.ONE.divide(base.pow(-intExponent), 16, RoundingMode.HALF_UP);
-            } catch (ArithmeticException ignored)
-            {
-                // Fallback to double-based power for large exponents.
-            }
+            } catch (ArithmeticException ignored) {}
         }
 
         if (base.compareTo(BigDecimal.ZERO) < 0)
