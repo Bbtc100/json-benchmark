@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
@@ -38,6 +40,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Input file not found: {input_path}")
         return 0
 
+    start_time = datetime.now()
+
     try:
         input_data = json.loads(input_path.read_text(encoding="utf-8"))
         output = ENGINE.execute(command_name, input_data, command_args)
@@ -60,6 +64,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     except OSError as exc:
         print(f"Failed to read JSON from file: {input_path}")
         print(str(exc))
+
+    end_time = datetime.now()
+    elapsed_ms = (end_time - start_time).total_seconds()
+    print(f"Runtime: {elapsed_ms:.2f} ms")
 
     return 0
 
