@@ -12,7 +12,7 @@ The goal is to implement multiple basic JSON processing solutions and analyze th
 
 - Single-threaded implementation
 - Multi-threaded implementation
-- JSON parsing using the **Jackson** library
+- JSON parsing using the `Jackson` library
 
 ### Python
 

@@ -23,10 +23,9 @@ class MainTest
         String output = runMainAndCapture("help");
 
         assertTrue(output.contains("Usage: <engine> <command> <file> [command-args...]"));
-        assertTrue(output.contains("single length <file>"));
-        assertTrue(output.contains("single filter <file> [expr]"));
-        assertTrue(output.contains("single map <file> [expr]"));
-        assertTrue(output.contains("multi"));
+        assertTrue(output.contains("<engine> length <file>"));
+        assertTrue(output.contains("<engine> filter <file> [expr]"));
+        assertTrue(output.contains("<engine> map <file> [expr]"));
     }
 
     @Test

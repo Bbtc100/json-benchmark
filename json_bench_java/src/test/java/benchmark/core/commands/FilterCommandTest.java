@@ -53,11 +53,103 @@ class FilterCommandTest
     }
 
     @Test
-    void returnsNullForMissingField() throws Exception
+    void canFilterByEqualsPredicate() throws Exception
     {
-        JsonNode input = MAPPER.readTree("{\"name\":\"abc\"}");
+        JsonNode input = MAPPER.readTree("""
+                {"users":[
+                  {"id":0,"age":75,"nested_0":{"value":15}},
+                  {"id":1,"age":35,"nested_0":{"value":99}},
+                  {"id":2,"age":35,"nested_0":{"value":15}}
+                ]}
+                """);
 
-        assertTrue(command.execute(input, List.of(".missing")).isNull());
+        JsonNode output = command.execute(input, List.of(".users[?id==1]"));
+
+        assertEquals(MAPPER.readTree("""
+                [{"id":1,"age":35,"nested_0":{"value":99}}]
+                """), output);
+    }
+
+    @Test
+    void canFilterByNotEqualsPredicate() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+                {"users":[
+                  {"id":0,"age":75},
+                  {"id":1,"age":35},
+                  {"id":2,"age":35}
+                ]}
+                """);
+
+        JsonNode output = command.execute(input, List.of(".users[?age!=35]"));
+
+        assertEquals(MAPPER.readTree("""
+                [{"id":0,"age":75}]
+                """), output);
+    }
+
+    @Test
+    void canFilterByGreaterThanPredicate() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+                {"users":[
+                  {"id":0,"age":75},
+                  {"id":1,"age":35},
+                  {"id":2,"age":40}
+                ]}
+                """);
+
+        JsonNode output = command.execute(input, List.of(".users[?age>39]"));
+
+        assertEquals(MAPPER.readTree("""
+                [{"id":0,"age":75},{"id":2,"age":40}]
+                """), output);
+    }
+
+    @Test
+    void canFilterByLessThanPredicate() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+                {"users":[
+                  {"id":0,"age":75},
+                  {"id":1,"age":35},
+                  {"id":2,"age":40}
+                ]}
+                """);
+
+        JsonNode output = command.execute(input, List.of(".users[?age<40]"));
+
+        assertEquals(MAPPER.readTree("""
+                [{"id":1,"age":35}]
+                """), output);
+    }
+
+    @Test
+    void supportsStringComparisonOperators() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+                {"users":[
+                  {"id":0,"name":"anna"},
+                  {"id":1,"name":"john"},
+                  {"id":2,"name":"zoe"}
+                ]}
+                """);
+
+        JsonNode output = command.execute(input, List.of(".users[?name>\"john\"]"));
+
+        assertEquals(MAPPER.readTree("""
+                [{"id":2,"name":"zoe"}]
+                """), output);
+    }
+
+    @Test
+    void returnsEmptyArrayWhenNoPredicateMatch() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("{\"users\":[{\"id\":1},{\"id\":2}]}");
+
+        JsonNode output = command.execute(input, List.of(".users[?id==999]"));
+
+        assertEquals(MAPPER.readTree("[]"), output);
     }
 
     @Test
@@ -81,6 +173,39 @@ class FilterCommandTest
 
         assertTrue(ex.getMessage().contains("Cannot iterate over non-array"));
     }
+
+    @Test
+    void failsWhenPredicateUsedOnNonArrayNode() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("{\"user\":{\"id\":1}}");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> command.execute(input, List.of(".user[?id==1]")));
+
+        assertTrue(ex.getMessage().contains("Predicate filter applies to arrays only"));
+    }
+
+    @Test
+    void failsForTypeMismatchInGreaterThan() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+                {"users":[{"id":1,"name":"a"}]}
+                """);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> command.execute(input, List.of(".users[?name>5]")));
+
+        assertTrue(ex.getMessage().contains("Cannot compare values with > operator: "));
+    }
+
+    @Test
+    void failsForUnknownPredicateOperator() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("{\"users\":[{\"id\":1}]}");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> command.execute(input, List.of(".users[?id>=1]")));
+
+        assertTrue(ex.getMessage().contains("must contain one of"));
+    }
 }
-
-
