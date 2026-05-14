@@ -124,5 +124,22 @@ class MultiEngineTest
             pool.shutdownNow();
         }
     }
+
+    @Test
+    void filterMatchesSingleEngineForNestedTailExpression() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+            {"users":[
+              {"id":10,"nested_0":{"nested_1":{"value":1}}},
+              {"id":20,"nested_0":{"nested_1":{"value":65}}},
+              {"id":30,"nested_0":{"nested_1":{"value":2}}}
+            ]}
+            """);
+
+        JsonNode single = singleEngine.execute("filter", input, List.of(".users[?id==20].nested_0.nested_1"));
+        JsonNode multi = multiEngine.execute("filter", input, List.of(".users[?id==20].nested_0.nested_1"));
+
+        assertEquals(single, multi);
+    }
 }
 

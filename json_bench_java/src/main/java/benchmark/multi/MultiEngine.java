@@ -287,12 +287,14 @@ public class MultiEngine
         return () ->
         {
             ArrayNode filtered = MAPPER.createArrayNode();
+            FilterExpressionParts parts = splitFilterExpression(expr);
 
              for (JsonNode item : batch)
              {
-                 if (matchesFilter(item, expr))
+                 JsonNode result = applyStreamingFilterExpression(item, expr);
+                 if (result != null && !result.isNull())
                  {
-                     filtered.add(item);
+                     filtered.add(result);
                  }
              }
              return filtered;
@@ -335,48 +337,6 @@ public class MultiEngine
             return tail.startsWith(".") ? tail : "." + tail;
         }
         return expr;
-    }
-
-    private boolean matchesFilter(JsonNode node, String expr)
-    {
-        if (expr == null || expr.isBlank() || ".".equals(expr))
-            return true;
-
-        if (!expr.startsWith("."))
-            throw new IllegalArgumentException("Expression must start with '.': " + expr);
-
-        String body =  expr.substring(1);
-
-        if (body.startsWith("users"))
-        {
-            String tail = body.substring("users".length());
-
-            int start = tail.indexOf("[?");
-            if (start < 0)
-                return true;
-
-            int end = tail.indexOf(']', start);
-            if (end < 0)
-                throw new IllegalArgumentException("Unterminated expression: " + expr);
-
-            String predText = tail.substring(start + 2, end).trim();
-            if  (predText.isBlank())
-                return false;
-
-            Predicate predicate = parse(predText);
-            return matches(node, predicate);
-        }
-
-        // fallback
-        FilterCommand filterCommand = new FilterCommand();
-        JsonNode result = filterCommand.execute(node, List.of(expr));
-
-        if (result == null || result.isNull())
-            return false;
-        if (result.isArray())
-            return !result.isEmpty();
-
-        return true;
     }
 
     private JsonNode executeMapInParallel(Command command, JsonNode input, List<String> args)
@@ -488,6 +448,66 @@ public class MultiEngine
 
         return invokeTasks(tasks);
     }
+
+    private JsonNode applyStreamingFilterExpression(JsonNode node, String expr)
+    {
+        if (expr == null || expr.isBlank() || ".".equals(expr))
+            return node;
+
+        FilterExpressionParts parts = splitFilterExpression(expr);
+
+        if (parts.predicateText() == null)
+        {
+            FilterCommand filterCommand = new FilterCommand();
+            JsonNode result = filterCommand.execute(node, List.of(expr));
+            return (result == null || result.isNull()) ? null : result;
+        }
+
+        Predicate predicate = parse(parts.predicateText());
+        if (!matches(node, predicate))
+            return null;
+
+        if (parts.tail() == null || parts.tail().isBlank())
+            return node;
+
+        String tailExpr = parts.tail().startsWith(".") ? parts.tail() : "." + parts.tail();
+        FilterCommand filterCommand = new FilterCommand();
+        JsonNode result = filterCommand.execute(node, List.of(tailExpr));
+
+        return (result == null || result.isNull()) ? null : result;
+    }
+
+    private FilterExpressionParts splitFilterExpression(String filterExpr)
+    {
+        if (filterExpr == null || filterExpr.isBlank() || ".".equals(filterExpr))
+            return new FilterExpressionParts(".", null, null);
+
+        if (!filterExpr.startsWith("."))
+            throw new IllegalArgumentException("Expression must start with '.'");
+
+        String body = filterExpr.substring(1);
+        if (body.startsWith("users"))
+            body = body.substring("users".length());
+
+        int predStart = body.indexOf("[?");
+        if (predStart < 0)
+            return new FilterExpressionParts(body, null, null);
+
+        int predEnd = body.indexOf("]", predStart + 2);
+        if (predEnd < 0)
+            throw new IllegalArgumentException("Unterminated predicate in filter expression: " + filterExpr);
+
+        String prefix = body.substring(0, predStart);
+        String predicateText = body.substring(predStart + 2, predEnd).trim();
+        String tail = body.substring(predEnd + 1);
+
+        if (tail != null && tail.isBlank())
+            tail = null;
+
+        return new FilterExpressionParts(prefix, predicateText, tail);
+    }
+
+    private record FilterExpressionParts(String prefix, String predicateText, String tail) {}
 
     private List<JsonNode> invokeTasks(List<Callable<JsonNode>> tasks)
     {

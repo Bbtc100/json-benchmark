@@ -48,39 +48,59 @@ public class FilterCommand implements Command, StreamingCommand
         if (!filterExpr.startsWith("."))
             throw new IllegalArgumentException("Expression must start with '.'");
 
-        String body = filterExpr.substring(1);
+        FilterExpressionParts parts = splitFilterExpression(filterExpr);
 
+        if (parts.predicateText() != null)
+        {
+            Predicate pred = parse(parts.predicateText());
+
+            if (!matches(element, pred))
+                return null;
+
+            if (parts.tail() == null || parts.tail().isBlank())
+                return element;
+
+            JsonNode result = applyFilter(element, parts.tail());
+            return (result == null || result.isNull()) ? null : result;
+        }
+
+        String elementExpr = parts.prefix().isBlank() ? "." : (parts.prefix().startsWith(".") ? parts.prefix() : "." + parts.prefix());
+
+        JsonNode result = applyFilter(element, elementExpr);
+        return (result == null || result.isNull()) ? null : result;
+    }
+
+    private FilterExpressionParts splitFilterExpression(String filterExpr)
+    {
+        if (filterExpr == null || filterExpr.isBlank() || ".".equals(filterExpr))
+            return new FilterExpressionParts("", null, null);
+
+        if (!filterExpr.startsWith("."))
+            throw new IllegalArgumentException("Expression must start with '.'");
+
+        String body = filterExpr.substring(1);
         if (body.startsWith("users"))
             body = body.substring("users".length());
 
         int predStart = body.indexOf("[?");
-        if  (predStart >= 0)
-        {
-            int predEnd = filterExpr.indexOf("]", predStart + 2);
-            if (predEnd < 0)
-                throw new IllegalArgumentException("Unterminated predicate in filter expression: " + filterExpr);
+        if (predStart < 0)
+            return new FilterExpressionParts(body, null, null);
 
-            String predText = body.substring(predStart + 2, predEnd);
-            String tail = body.substring(predEnd + 1);
+        int predEnd = body.indexOf("]",  predStart + 2);
+        if (predEnd < 0)
+            throw new IllegalArgumentException("Unterminated predicate expression in: " + filterExpr);
 
-            Predicate pred = parse(predText);
-            if (!matches(element, pred))
-                return null;
+        String prefix = body.substring(0, predStart);
+        String predText = body.substring(predStart + 2, predEnd).trim();
+        String tail = body.substring(predEnd + 1);
 
-            if (tail.isBlank())
-                return element;
+        if (tail != null && tail.isBlank())
+            tail = null;
 
-            return applyFilter(element, tail.startsWith(".") ? tail : "." + tail);
-        }
-
-        String elementExpr = body.isBlank() ? "." : (body.startsWith(".") ? body : "." + body);
-        JsonNode result = applyFilter(element, elementExpr);
-
-        if (result == null || result.isNull())
-            return null;
-
-        return result;
+        return new FilterExpressionParts(prefix, predText, tail);
     }
+
+    private record FilterExpressionParts(String prefix, String predicateText, String tail) {}
 
     private JsonNode applyFilter(JsonNode node, String filterExpr)
     {
@@ -177,7 +197,13 @@ public class FilterCommand implements Command, StreamingCommand
 
             String tail = token.substring(predEnd + 1);
             if (!tail.isEmpty())
-                throw new IllegalArgumentException("Unexpected characters after predicate in: " + originalExpr);
+            {
+                if (!tail.startsWith("."))
+                    tail = "." + tail;
+
+                List<PathSegment> tailSegments = parseFilter("." + tail);
+                segments.addAll(tailSegments.subList(1, tailSegments.size()));
+            }
 
             return;
         }

@@ -207,4 +207,22 @@ class FilterCommandTest
 
         assertTrue(ex.getMessage().contains("Unsupported predicate operator"));
     }
+
+    @Test
+    void canFilterAndContinueNestedTail() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+            {"users":[
+              {"id":10,"nested_0":{"nested_1":{"value":1}}},
+              {"id":20,"nested_0":{"nested_1":{"value":65}}},
+              {"id":30,"nested_0":{"nested_1":{"value":2}}}
+            ]}
+            """);
+
+        JsonNode output = command.execute(input, List.of(".users[?id==20].nested_0.nested_1"));
+
+        assertEquals(MAPPER.readTree("""
+            [{"value":65}]
+            """), output);
+    }
 }
