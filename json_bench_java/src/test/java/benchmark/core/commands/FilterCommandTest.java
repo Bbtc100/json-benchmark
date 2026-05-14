@@ -192,10 +192,9 @@ class FilterCommandTest
                 {"users":[{"id":1,"name":"a"}]}
                 """);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> command.execute(input, List.of(".users[?name>5]")));
+        JsonNode output = command.execute(input, List.of(".users[?name>5]"));
 
-        assertTrue(ex.getMessage().contains("Cannot compare values with > operator: "));
+        assertEquals(MAPPER.readTree("[]"), output);
     }
 
     @Test
@@ -206,6 +205,24 @@ class FilterCommandTest
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> command.execute(input, List.of(".users[?id>=1]")));
 
-        assertTrue(ex.getMessage().contains("must contain one of"));
+        assertTrue(ex.getMessage().contains("Unsupported predicate operator"));
+    }
+
+    @Test
+    void canFilterAndContinueNestedTail() throws Exception
+    {
+        JsonNode input = MAPPER.readTree("""
+            {"users":[
+              {"id":10,"nested_0":{"nested_1":{"value":1}}},
+              {"id":20,"nested_0":{"nested_1":{"value":65}}},
+              {"id":30,"nested_0":{"nested_1":{"value":2}}}
+            ]}
+            """);
+
+        JsonNode output = command.execute(input, List.of(".users[?id==20].nested_0.nested_1"));
+
+        assertEquals(MAPPER.readTree("""
+            [{"value":65}]
+            """), output);
     }
 }
