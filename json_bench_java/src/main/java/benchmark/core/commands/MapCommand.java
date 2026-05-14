@@ -1,25 +1,26 @@
 package benchmark.core.commands;
 
 import benchmark.core.Command;
+import benchmark.core.StreamingCommand;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.*;
 
+import java.io.IOException;
+import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class MapCommand implements Command
+import static benchmark.core.commands.StreamingArrayProcessor.processArray;
+
+public class MapCommand implements Command, StreamingCommand
 {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Pattern ARITHMETIC_EXPR = Pattern.compile("^\\s*\\.?\\s*([+\\-*/^])\\s*([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+))\\s*$");
-
-    private final FilterCommand filterCommand = new FilterCommand();
 
     @Override
     public String name() { return "map"; }
@@ -28,7 +29,7 @@ public class MapCommand implements Command
     public JsonNode execute(JsonNode input, List<String> args)
     {
         if (input == null)
-            return com.fasterxml.jackson.databind.node.NullNode.instance;
+            return NullNode.instance;
 
         String filterExpr = (args == null || args.isEmpty()) ? "." : args.getFirst();
 
@@ -55,6 +56,13 @@ public class MapCommand implements Command
         throw new IllegalArgumentException("map_values expects object or array input, got: " + input.getNodeType());
     }
 
+    @Override
+    public void streamExecute(Path inputFile, List<String> args, PrintStream out) throws IOException
+    {
+        String filterExpr = (args == null || args.isEmpty()) ? "." : args.getFirst();
+        processArray(inputFile, element -> applyExpression(element, filterExpr), out);
+    }
+
     private JsonNode applyExpression(JsonNode node, String filterExpr)
     {
         ArithmeticOp arithmeticOp = parseArithmetic(filterExpr);
@@ -64,6 +72,7 @@ public class MapCommand implements Command
             return applyArithmeticRecursively(node, arithmeticOp);
         }
 
+        FilterCommand filterCommand = new FilterCommand();
         return filterCommand.execute(node, List.of(filterExpr));
     }
 
@@ -86,7 +95,7 @@ public class MapCommand implements Command
     private JsonNode applyArithmeticRecursively(JsonNode node, ArithmeticOp op)
     {
         if (node == null || node.isNull())
-            return com.fasterxml.jackson.databind.node.NullNode.instance;
+            return NullNode.instance;
 
         if (node.isObject())
         {
@@ -167,6 +176,5 @@ public class MapCommand implements Command
         return BigDecimal.valueOf(result);
     }
 
-    private record ArithmeticOp(char operator, BigDecimal operand) {
-    }
+    private record ArithmeticOp(char operator, BigDecimal operand) {}
 }

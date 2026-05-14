@@ -17,6 +17,8 @@ public class Main {
     private static final SingleEngine SINGLE_ENGINE = new SingleEngine();
     private static final MultiEngine MULTI_ENGINE = new MultiEngine();
 
+    private static final long STREAMING_THRESHOLD_BYTES = 50L * 1024L  * 1024L;
+
     public static void main(String[] args) {
         if (args.length == 0)
         {
@@ -72,10 +74,18 @@ public class Main {
 
         try
         {
-            JsonNode input = MAPPER.readTree(inputPath.toFile());
-            JsonNode output = execute(firstArg, commandName, input, commandArgs);
-            System.out.println(output.toString());
+            long fileSize = Files.size(inputPath);
 
+            if (fileSize >  STREAMING_THRESHOLD_BYTES)
+            {
+                executeStreaming(firstArg, commandName, inputPath, commandArgs);
+            }
+            else
+            {
+                JsonNode input = MAPPER.readTree(inputPath.toFile());
+                JsonNode output = execute(firstArg, commandName, input, commandArgs);
+                System.out.println(output.toString());
+            }
         } catch (IOException e)
         {
             System.out.println("Failed to read JSON from file: " + inputPath);
@@ -109,6 +119,18 @@ public class Main {
         return "multi".equals(engineName)
                 ? MULTI_ENGINE.execute(commandName, input, commandArgs)
                 : SINGLE_ENGINE.execute(commandName, input, commandArgs);
+    }
+
+    private static void executeStreaming(String engineName, String commandName, Path inputFile, List<String> commandArgs) throws IOException
+    {
+        if ("multi".equals(engineName))
+        {
+            MULTI_ENGINE.streamExecute(commandName, inputFile, commandArgs, System.out);
+        }
+        else
+        {
+            SINGLE_ENGINE.streamExecute(commandName, inputFile, commandArgs, System.out);
+        }
     }
 
     private static List<String> commandNames(String engineName)

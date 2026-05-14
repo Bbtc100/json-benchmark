@@ -1,14 +1,23 @@
 package benchmark.multi;
 
 import benchmark.core.Command;
+import benchmark.core.StreamingCommand;
 import benchmark.core.commands.FilterCommand;
+import benchmark.core.commands.FilterPredicate;
 import benchmark.core.commands.LengthCommand;
 import benchmark.core.commands.MapCommand;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,9 +33,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static benchmark.core.commands.FilterPredicate.*;
+
 public class MultiEngine
 {
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonFactory JSON_FACTORY = new JsonFactory();
     private static final AtomicInteger WORKER_ID = new AtomicInteger(1);
 
     private final Map<String, Command> commands;
@@ -70,6 +82,301 @@ public class MultiEngine
             case "length" -> executeLengthInParallel(command, input, safeArgs);
             default -> command.execute(input, safeArgs);
         };
+    }
+
+    public void streamExecute(String commandName, Path inputFile, List<String> args, PrintStream out) throws IOException
+    {
+        List<String> safeArgs = args == null ? List.of() : List.copyOf(args);
+        Command command = commands.get(commandName);
+
+        if (command == null)
+            throw new IllegalArgumentException("Unknown command: " + commandName);
+
+        switch (commandName)
+        {
+            case "length" -> streamLength(command, inputFile, safeArgs, out);
+            case "filter" -> streamFilter(inputFile, safeArgs, out);
+            case "map" -> streamMap(inputFile, safeArgs, out);
+            default ->
+            {
+                if (command instanceof StreamingCommand sc)
+                {
+                    sc.streamExecute(inputFile, safeArgs, out);
+                }
+                else
+                {
+                    // fallback, may throw OOM for large files
+                    JsonNode root = MAPPER.readTree(inputFile.toFile());
+                    JsonNode result = command.execute(root, safeArgs);
+                    out.println(result.toString());
+                }
+            }
+        }
+    }
+
+    private void streamLength(Command command, Path inputFile, List<String> args, PrintStream out) throws IOException
+    {
+           try (JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
+           {
+               while (parser.nextToken() != null)
+               {
+                   if (parser.currentToken() == JsonToken.FIELD_NAME && "users".equals(parser.currentName()))
+                   {
+                       if (parser.nextToken() != JsonToken.START_ARRAY)
+                       {
+                           out.println(0);
+                           return;
+                       }
+
+                       List<Callable<Long>> tasks = new ArrayList<>();
+                       List<JsonNode> batch = new ArrayList<>(chunkSizeHint());
+
+                       while (parser.nextToken() != JsonToken.END_ARRAY)
+                       {
+                           batch.add(MAPPER.readTree(parser));
+                           if (batch.size() >= chunkSizeHint())
+                           {
+                               tasks.add(lengthTask(command, batch, args));
+                               batch = new  ArrayList<>(chunkSizeHint());
+                           }
+                       }
+
+                       if (!batch.isEmpty())
+                           tasks.add(lengthTask(command, batch, args));
+
+                       long total = 0;
+                       for (Future<Long> future : invokeLongTasks(tasks))
+                       {
+                           try
+                           {
+                               total += future.get();
+                           }
+                           catch (InterruptedException e)
+                           {
+                               Thread.currentThread().interrupt();
+                               throw new RuntimeException("Parallel execution was interrupted", e);
+                           }
+                           catch (ExecutionException e)
+                           {
+                               Throwable cause = e.getCause();
+                               if (cause instanceof RuntimeException runtimeException)
+                                   throw runtimeException;
+
+                               throw new RuntimeException("Parallel execution failed", cause);
+                           }
+                       }
+
+                       out.println(total);
+                       return;
+                   }
+               }
+           }
+           catch (InterruptedException e)
+           {
+               Thread.currentThread().interrupt();
+               throw new RuntimeException("Parallel execution was interrupted", e);
+           }
+
+           out.println(0);
+    }
+
+    private void streamFilter(Path inputFile, List<String> args, PrintStream out) throws IOException
+    {
+        String expr = args.isEmpty() ? "." : args.getFirst();
+
+        try(JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
+        {
+            while (parser.nextToken() != null)
+            {
+                if (parser.currentToken() == JsonToken.FIELD_NAME && "users".equals(parser.currentName()))
+                {
+                    if (parser.nextToken() != JsonToken.START_ARRAY)
+                    {
+                        out.println("[]");
+                        return;
+                    }
+
+                    List<Callable<JsonNode>> tasks = new ArrayList<>();
+                    List<JsonNode> batch = new ArrayList<>(chunkSizeHint());
+
+                    while (parser.nextToken() != JsonToken.END_ARRAY)
+                    {
+                        batch.add(MAPPER.readTree(parser));
+                        if (batch.size() >= chunkSizeHint())
+                        {
+                            tasks.add(filterTask(batch, expr));
+                            batch = new  ArrayList<>(chunkSizeHint());
+                        }
+                    }
+
+                    if (!batch.isEmpty())
+                        tasks.add(filterTask(batch, expr));
+
+                    List<JsonNode> parts = invokeTasks(tasks);
+                    out.println(mergeArrayParts(parts).toString());
+                    return;
+                }
+            }
+        }
+
+        out.println("[]");
+    }
+
+    private void streamMap(Path inputFile, List<String> args, PrintStream out) throws IOException
+    {
+        String expr = args.isEmpty() ? "." : args.getFirst();
+
+        try(JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
+        {
+            while (parser.nextToken() != null)
+            {
+                if (parser.currentToken() == JsonToken.FIELD_NAME && "users".equals(parser.currentName()))
+                {
+                    if (parser.nextToken() != JsonToken.START_ARRAY)
+                    {
+                        out.println("[]");
+                        return;
+                    }
+
+                    List<Callable<JsonNode>> tasks = new ArrayList<>();
+                    List<JsonNode> batch = new ArrayList<>(chunkSizeHint());
+
+                    while (parser.nextToken() != JsonToken.END_ARRAY)
+                    {
+                        batch.add(MAPPER.readTree(parser));
+                        if (batch.size() >= chunkSizeHint())
+                        {
+                            tasks.add(mapTask(batch, expr));
+                            batch = new  ArrayList<>(chunkSizeHint());
+                        }
+                    }
+
+                    if (!batch.isEmpty())
+                        tasks.add(mapTask(batch, expr));
+
+                    List<JsonNode> parts = invokeTasks(tasks);
+                    out.println(mergeArrayParts(parts).toString());
+                    return;
+                }
+            }
+        }
+
+        out.println("[]");
+    }
+
+    private Callable<Long> lengthTask(Command command, List<JsonNode> batch, List<String> args)
+    {
+        ArrayNode chunk = MAPPER.createArrayNode();
+
+        for (JsonNode item : batch)
+        {
+            chunk.add(item);
+        }
+        return () ->
+        {
+            JsonNode result = command.execute(chunk, args);
+            if (!result.isNumber())
+                throw new IllegalStateException("Parallel length chunk returned non-numeric output");
+
+            return result.longValue();
+        };
+    }
+
+    private Callable<JsonNode> filterTask(List<JsonNode> batch, String expr)
+    {
+        return () ->
+        {
+            ArrayNode filtered = MAPPER.createArrayNode();
+
+             for (JsonNode item : batch)
+             {
+                 if (matchesFilter(item, expr))
+                 {
+                     filtered.add(item);
+                 }
+             }
+             return filtered;
+        };
+    }
+
+    private Callable<JsonNode> mapTask(List<JsonNode> batch, String expr)
+    {
+        return () ->
+        {
+            ArrayNode mapped = MAPPER.createArrayNode();
+            MapCommand mapCommand = new  MapCommand();
+
+            String elementExpr = normalizeElementExpr(expr);
+            for (JsonNode item : batch)
+            {
+                JsonNode result = mapCommand.execute(item, List.of(elementExpr));
+                mapped.add(result);
+            }
+            return mapped;
+        };
+    }
+
+    private String normalizeElementExpr(String expr)
+    {
+        if (expr == null || expr.isBlank())
+            return ".";
+
+        if (!expr.startsWith("."))
+            throw new IllegalArgumentException("Expression must start with '.': " + expr);
+
+        String body = expr.substring(1);
+
+        if(body.startsWith("users"))
+        {
+            String tail = body.substring("users".length());
+            if (tail.isEmpty())
+                return ".";
+
+            return tail.startsWith(".") ? tail : "." + tail;
+        }
+        return expr;
+    }
+
+    private boolean matchesFilter(JsonNode node, String expr)
+    {
+        if (expr == null || expr.isBlank() || ".".equals(expr))
+            return true;
+
+        if (!expr.startsWith("."))
+            throw new IllegalArgumentException("Expression must start with '.': " + expr);
+
+        String body =  expr.substring(1);
+
+        if (body.startsWith("users"))
+        {
+            String tail = body.substring("users".length());
+
+            int start = tail.indexOf("[?");
+            if (start < 0)
+                return true;
+
+            int end = tail.indexOf(']', start);
+            if (end < 0)
+                throw new IllegalArgumentException("Unterminated expression: " + expr);
+
+            String predText = tail.substring(start + 2, end).trim();
+            if  (predText.isBlank())
+                return false;
+
+            Predicate predicate = parse(predText);
+            return matches(node, predicate);
+        }
+
+        // fallback
+        FilterCommand filterCommand = new FilterCommand();
+        JsonNode result = filterCommand.execute(node, List.of(expr));
+
+        if (result == null || result.isNull())
+            return false;
+        if (result.isArray())
+            return !result.isEmpty();
+
+        return true;
     }
 
     private JsonNode executeMapInParallel(Command command, JsonNode input, List<String> args)
@@ -122,7 +429,7 @@ public class MultiEngine
             total += partial.longValue();
         }
 
-        return com.fasterxml.jackson.databind.node.LongNode.valueOf(total);
+        return LongNode.valueOf(total);
     }
 
     private List<JsonNode> executeOnArrayChunks(Command command, JsonNode input, List<String> args)
@@ -217,6 +524,19 @@ public class MultiEngine
         return results;
     }
 
+    private List<Future<Long>> invokeLongTasks(List<Callable<Long>> tasks) throws InterruptedException
+    {
+            try
+            {
+                return executor.invokeAll(tasks);
+            }
+            catch (InterruptedException e)
+            {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Parallel execution was interrupted", e);
+            }
+    }
+
     private JsonNode mergeArrayParts(List<JsonNode> parts)
     {
         ArrayNode merged = MAPPER.createArrayNode();
@@ -263,6 +583,11 @@ public class MultiEngine
     private int chunkSize(int size)
     {
         return Math.max(1, (size + workers - 1) / workers);
+    }
+
+    private int chunkSizeHint()
+    {
+        return Math.max(1, 1024 / workers);
     }
 
     private void register(Command command)

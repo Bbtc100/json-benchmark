@@ -192,10 +192,9 @@ class FilterCommandTest
                 {"users":[{"id":1,"name":"a"}]}
                 """);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> command.execute(input, List.of(".users[?name>5]")));
+        JsonNode output = command.execute(input, List.of(".users[?name>5]"));
 
-        assertTrue(ex.getMessage().contains("Cannot compare values with > operator: "));
+        assertEquals(MAPPER.readTree("[]"), output);
     }
 
     @Test
@@ -206,6 +205,6 @@ class FilterCommandTest
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> command.execute(input, List.of(".users[?id>=1]")));
 
-        assertTrue(ex.getMessage().contains("must contain one of"));
+        assertTrue(ex.getMessage().contains("Unsupported predicate operator"));
     }
 }

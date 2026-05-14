@@ -1,17 +1,22 @@
 package benchmark.core.commands;
 
 import benchmark.core.Command;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import benchmark.core.StreamingCommand;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FilterCommand implements Command
+import static benchmark.core.commands.FilterPredicate.*;
+import static benchmark.core.commands.StreamingArrayProcessor.processArray;
+
+public class FilterCommand implements Command, StreamingCommand
 {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -25,6 +30,66 @@ public class FilterCommand implements Command
     {
         String filterExpr = (args == null || args.isEmpty()) ? "." : args.getFirst();
         return applyFilter(input, filterExpr);
+    }
+
+    @Override
+    public void streamExecute(Path inputFile, List<String> args, PrintStream out) throws IOException
+    {
+        String filterExpr = (args == null || args.isEmpty()) ? "." : args.getFirst();
+
+        processArray(inputFile, element -> streamFilterElement(element, filterExpr), out);
+    }
+
+    private JsonNode streamFilterElement(JsonNode element, String filterExpr)
+    {
+        if (filterExpr.startsWith(".users[?"))
+        {
+            int start =  filterExpr.indexOf("[?");
+            int end = filterExpr.indexOf("]", start);
+
+            if (start >= 0 && end > start)
+            {
+                String predText = filterExpr.substring(start + 2, end);
+
+                try
+                {
+                    Predicate predicate = parse(predText);
+                    if (matches(element, predicate))
+                        return element;
+                    return null;
+                }
+                catch (Exception e) {}
+            }
+        }
+
+        String elementExpr = normalizeElementExpr(filterExpr);
+        JsonNode result = applyFilter(element, elementExpr);
+
+        if (result == null || result.isNull())
+            return null;
+
+        return result;
+    }
+
+    private String normalizeElementExpr(String expr)
+    {
+        if (expr == null || expr.isBlank())
+            return ".";
+
+        if (!expr.startsWith("."))
+            throw new IllegalArgumentException("Expression must start with '.': " + expr);
+
+        String body = expr.substring(1);
+
+        if(body.startsWith("users"))
+        {
+            String tail = body.substring("users".length());
+            if (tail.isEmpty())
+                return ".";
+
+            return tail.startsWith(".") ? tail : "." + tail;
+        }
+        return expr;
     }
 
     private JsonNode applyFilter(JsonNode node, String filterExpr)
@@ -48,47 +113,86 @@ public class FilterCommand implements Command
             throw new IllegalArgumentException("Filter must start with '.' (got: " + expr + ")");
         }
 
-        String[] parts = expr.substring(1).split("\\.");
+        String body = expr.substring(1);
+        int i = 0;
+        StringBuilder token = new StringBuilder();
+        int bracketDepth = 0;
 
-        for (String part : parts)
+        while (i < body.length())
         {
-            if (part.isEmpty())
+            char c = body.charAt(i);
+
+            if (c == '.' && bracketDepth == 0)
+            {
+                addTokenAsSegment(segments, token.toString(), expr);
+                token.setLength(0);
+                ++i;
                 continue;
-
-            int predStart = part.indexOf("[?");
-
-            if (predStart >= 0)
-            {
-                String field = part.substring(0, predStart);
-                if (!field.isEmpty())
-                {
-                    segments.add(new PathSegment(PathSegment.Type.FIELD, field));
-                }
-
-                int predEnd =  part.indexOf(']', predStart + 1);
-                if (predEnd < 0)
-                    throw new IllegalArgumentException("Unterminated expression in: " + expr);
-
-                String pred = part.substring(predStart + 2, predEnd);
-                if (pred.isEmpty())
-                    throw new IllegalArgumentException("Empty predicate in: " + expr);
-
-                segments.add(new PathSegment(PathSegment.Type.FILTER, pred));
-
-                String tail = part.substring(predEnd + 1);
-                if (!tail.isEmpty())
-                    throw new IllegalArgumentException("Unexpected characters after predicate in: " + expr);
-
-            } else if (part.equals("[]"))
-            {
-                segments.add(new PathSegment(PathSegment.Type.ITERATE, null));
-            } else
-            {
-                segments.add(new PathSegment(PathSegment.Type.FIELD, part));
             }
+
+            if (c == '[')
+            {
+                ++bracketDepth;
+            }
+            else if (c == ']')
+            {
+                --bracketDepth;
+                if (bracketDepth < 0)
+                {
+                    throw new IllegalArgumentException("Unexpected closing bracket in: " + expr);
+                }
+            }
+
+            token.append(c);
+            ++i;
         }
 
+        if (bracketDepth != 0)
+        {
+            throw new IllegalArgumentException("Unterminated expression in: " + expr);
+        }
+
+        addTokenAsSegment(segments, token.toString(), expr);
         return segments;
+    }
+
+    private void addTokenAsSegment(List<PathSegment> segments,String token, String originalExpr)
+    {
+        if (token == null || token.isBlank())
+            return;
+
+        if (token.equals("[]"))
+        {
+            segments.add(new PathSegment(PathSegment.Type.ITERATE, null));
+            return;
+        }
+
+        int predStart = token.indexOf("[?");
+        if (predStart >= 0)
+        {
+            String field = token.substring(0, predStart);
+
+            if (!field.isEmpty())
+                segments.add(new PathSegment(PathSegment.Type.FIELD, field));
+
+            int predEnd = token.indexOf(']', predStart + 2);
+            if (predEnd < 0)
+                throw new IllegalArgumentException("Unterminated expression in: " + originalExpr);
+
+            String pred = token.substring(predStart + 2, predEnd);
+            if (pred.isEmpty())
+                throw new IllegalArgumentException("Empty predicate in: " + originalExpr);
+
+            segments.add(new PathSegment(PathSegment.Type.FILTER, pred));
+
+            String tail = token.substring(predEnd + 1);
+            if (!tail.isEmpty())
+                throw new IllegalArgumentException("Unexpected characters after predicate in: " + originalExpr);
+
+            return;
+        }
+
+        segments.add(new PathSegment(PathSegment.Type.FIELD, token));
     }
 
     private JsonNode evaluate(JsonNode node, List<PathSegment> segments)
@@ -106,12 +210,12 @@ public class FilterCommand implements Command
 
             case FIELD:
                 if (!node.isObject())
-                    return com.fasterxml.jackson.databind.node.NullNode.instance;
+                    return NullNode.instance;
 
                 JsonNode field = node.get(current.value);
 
                 if (field == null)
-                    return com.fasterxml.jackson.databind.node.NullNode.instance;
+                    return NullNode.instance;
 
                 return rest.isEmpty() ? field : evaluate(field, rest);
 
@@ -136,10 +240,11 @@ public class FilterCommand implements Command
                 }
 
                 ArrayNode filtered = MAPPER.createArrayNode();
+                Predicate predicate = parse(current.value);
 
                 for (JsonNode item : node)
                 {
-                    if (matchesPredicate(item, current.value))
+                    if (matches(item, predicate))
                     {
                         JsonNode evaluated =  rest.isEmpty() ? item : evaluate(item, rest);
                         filtered.add(evaluated);
@@ -150,122 +255,6 @@ public class FilterCommand implements Command
 
             default:
                 throw new IllegalArgumentException("Unknown path segment type: " + current.type);
-        }
-    }
-
-    private boolean matchesPredicate(JsonNode item, String pred)
-    {
-        ParsedPredicate predicate = parsePredicate(pred);
-        JsonNode target = item.get(predicate.fieldPath());
-        if (target == null || target.isNull())
-            return false;
-
-        JsonNode literal = parseLiteral(predicate.literal());
-
-        return compare(target, literal, predicate.operator());
-    }
-
-    private ParsedPredicate parsePredicate(String raw)
-    {
-        String trimmed = raw.trim();
-        if (trimmed.contains(">=") || trimmed.contains("<="))
-            throw new IllegalArgumentException("Predicate must contain one of the following operators: (==, !=, >, <): " + raw);
-
-        int idx;
-
-        idx = trimmed.indexOf("==");
-        if (idx >= 0)
-            return splitPredicate(trimmed, idx, Operator.EQUALS);
-
-        idx = trimmed.indexOf("!=");
-        if (idx >= 0)
-            return splitPredicate(trimmed, idx, Operator.NOT_EQUALS);
-
-        idx = trimmed.indexOf(">");
-        if (idx >= 0)
-            return splitPredicate(trimmed, idx, Operator.GREATER_THAN);
-
-        idx = trimmed.indexOf("<");
-        if (idx >= 0)
-            return splitPredicate(trimmed, idx, Operator.LESS_THAN);
-
-        throw new IllegalArgumentException("Predicate must contain one of the following operators: (==, !=, >, <): " + raw);
-    }
-
-    private ParsedPredicate splitPredicate(String txt, int opIdx, Operator operator)
-    {
-        int opLen = operator.symbol.length();
-        String left =  txt.substring(0, opIdx).trim();
-        String right = txt.substring(opIdx + opLen).trim();
-
-        if (left.contains("."))
-            throw new IllegalArgumentException("Predicate path must be a single field: " + left);
-
-        if (left.isEmpty() || right.isEmpty())
-            throw new IllegalArgumentException("Illegal predicate: " + txt);
-
-        return new ParsedPredicate(left, operator, right);
-    }
-
-    private JsonNode parseLiteral(String raw)
-    {
-        try
-        {
-            return MAPPER.readTree(raw);
-        }
-        catch (JsonProcessingException e)
-        {
-            return new TextNode(raw);
-        }
-    }
-
-    private boolean compare(JsonNode left, JsonNode right, Operator op)
-    {
-        return switch (op)
-        {
-            case EQUALS -> left.equals(right);
-            case NOT_EQUALS ->  !left.equals(right);
-            case GREATER_THAN -> greaterThan(left, right);
-            case LESS_THAN -> lessThan(left, right);
-        };
-    }
-
-    private boolean greaterThan(JsonNode left, JsonNode right)
-    {
-        if (left.isNumber() && right.isNumber())
-            return left.decimalValue().compareTo(right.decimalValue()) > 0;
-
-        if (left.isTextual() && right.isTextual())
-            return left.asText().compareTo(right.asText()) > 0;
-
-        throw new IllegalArgumentException("Cannot compare values with > operator: " + left + " and " + right);
-    }
-
-    private boolean lessThan(JsonNode left, JsonNode right)
-    {
-        if (left.isNumber() && right.isNumber())
-            return left.decimalValue().compareTo(right.decimalValue()) < 0;
-
-        if (left.isTextual() && right.isTextual())
-            return left.asText().compareTo(right.asText()) < 0;
-
-        throw new IllegalArgumentException("Cannot compare values with < operator: " + left + " and " + right);
-    }
-
-    private record ParsedPredicate(String fieldPath, Operator operator, String literal) {}
-
-    private enum Operator
-    {
-        EQUALS("=="),
-        NOT_EQUALS("!="),
-        GREATER_THAN(">"),
-        LESS_THAN("<");
-
-        private final String symbol;
-
-        Operator(String symbol)
-        {
-            this.symbol = symbol;
         }
     }
 
