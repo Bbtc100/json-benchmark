@@ -42,54 +42,44 @@ public class FilterCommand implements Command, StreamingCommand
 
     private JsonNode streamFilterElement(JsonNode element, String filterExpr)
     {
-        if (filterExpr.startsWith(".users[?"))
+        if (filterExpr == null || filterExpr.isBlank() || ".".equals(filterExpr))
+            return element;
+
+        if (!filterExpr.startsWith("."))
+            throw new IllegalArgumentException("Expression must start with '.'");
+
+        String body = filterExpr.substring(1);
+
+        if (body.startsWith("users"))
+            body = body.substring("users".length());
+
+        int predStart = body.indexOf("[?");
+        if  (predStart >= 0)
         {
-            int start =  filterExpr.indexOf("[?");
-            int end = filterExpr.indexOf("]", start);
+            int predEnd = filterExpr.indexOf("]", predStart + 2);
+            if (predEnd < 0)
+                throw new IllegalArgumentException("Unterminated predicate in filter expression: " + filterExpr);
 
-            if (start >= 0 && end > start)
-            {
-                String predText = filterExpr.substring(start + 2, end);
+            String predText = body.substring(predStart + 2, predEnd);
+            String tail = body.substring(predEnd + 1);
 
-                try
-                {
-                    Predicate predicate = parse(predText);
-                    if (matches(element, predicate))
-                        return element;
-                    return null;
-                }
-                catch (Exception e) {}
-            }
+            Predicate pred = parse(predText);
+            if (!matches(element, pred))
+                return null;
+
+            if (tail.isBlank())
+                return element;
+
+            return applyFilter(element, tail.startsWith(".") ? tail : "." + tail);
         }
 
-        String elementExpr = normalizeElementExpr(filterExpr);
+        String elementExpr = body.isBlank() ? "." : (body.startsWith(".") ? body : "." + body);
         JsonNode result = applyFilter(element, elementExpr);
 
         if (result == null || result.isNull())
             return null;
 
         return result;
-    }
-
-    private String normalizeElementExpr(String expr)
-    {
-        if (expr == null || expr.isBlank())
-            return ".";
-
-        if (!expr.startsWith("."))
-            throw new IllegalArgumentException("Expression must start with '.': " + expr);
-
-        String body = expr.substring(1);
-
-        if(body.startsWith("users"))
-        {
-            String tail = body.substring("users".length());
-            if (tail.isEmpty())
-                return ".";
-
-            return tail.startsWith(".") ? tail : "." + tail;
-        }
-        return expr;
     }
 
     private JsonNode applyFilter(JsonNode node, String filterExpr)
