@@ -86,24 +86,19 @@ public class EngineBenchmarks
         lengthArgs = List.of(".users");
     }
 
-    @TearDown(Level.Trial)
-    public void tearDown() throws Exception
-    {}
-
     // MAP benchmarks
 
     @Benchmark
     public void mapSingle(Blackhole bh)
     {
-        JsonNode out = single.execute("map", inputRoot, mapArgs);
-        bh.consume(out);
+        bh.consume(single.execute("map", inputRoot, mapArgs));
     }
 
     @Benchmark
     public void mapMulti(Blackhole bh)
     {
-        JsonNode out = multi.execute("map", inputRoot, mapArgs);
-        bh.consume(out);
+        bh.consume(multi.execute("map", inputRoot, mapArgs));
+
     }
 
     // LENGTH benchmarks
@@ -111,15 +106,13 @@ public class EngineBenchmarks
     @Benchmark
     public void lengthSingle(Blackhole bh)
     {
-        JsonNode out = single.execute("length", inputRoot, lengthArgs);
-        bh.consume(out);
+        bh.consume(single.execute("length", inputRoot, lengthArgs));
     }
 
     @Benchmark
     public void lengthMulti(Blackhole bh)
     {
-        JsonNode out = multi.execute("length", inputRoot, lengthArgs);
-        bh.consume(out);
+        bh.consume(multi.execute("length", inputRoot, lengthArgs));
     }
 
     // FILTER benchmarks
@@ -127,14 +120,12 @@ public class EngineBenchmarks
     @Benchmark
     public void filterSingle(Blackhole bh)
     {
-        JsonNode out = single.execute("filter", inputRoot, List.of(filterExpr));
-        bh.consume(out);
+        bh.consume(single.execute("filter", inputRoot, List.of(filterExpr)));
     }
 
     @Benchmark
     public void filterMulti(Blackhole bh)
     {
-        JsonNode out = multi.execute("filter", inputRoot, List.of(filterExpr));
-        bh.consume(out);
+        bh.consume(multi.execute("filter", inputRoot, List.of(filterExpr)));
     }
 }
