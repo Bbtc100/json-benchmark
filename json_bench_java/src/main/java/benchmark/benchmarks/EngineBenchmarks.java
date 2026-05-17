@@ -116,7 +116,8 @@ public class EngineBenchmarks
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
             {
-                single.streamExecute("map", inputPath, mapArgs, ps);
+                single.streamExecute("map", inputPath, mapArgs, System.out);
+                bh.consume(1);
             }
             catch (IOException e)
             {
@@ -138,7 +139,8 @@ public class EngineBenchmarks
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
             {
-                multi.streamExecute("map", inputPath, mapArgs, ps);
+                multi.streamExecute("map", inputPath, mapArgs, System.out);
+                bh.consume(1);
             }
             catch (IOException e)
             {
@@ -163,7 +165,8 @@ public class EngineBenchmarks
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
             {
-                single.streamExecute("length", inputPath, lengthArgs, ps);
+                single.streamExecute("length", inputPath, lengthArgs, System.out);
+                bh.consume(1);
             }
             catch (IOException e)
             {
@@ -185,7 +188,8 @@ public class EngineBenchmarks
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
             {
-                multi.streamExecute("length", inputPath, lengthArgs, ps);
+                multi.streamExecute("length", inputPath, lengthArgs, System.out);
+                bh.consume(1);
             }
             catch (IOException e)
             {
@@ -209,7 +213,8 @@ public class EngineBenchmarks
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
             {
-                single.streamExecute("filter", inputPath, List.of(filterExpr), ps);
+                single.streamExecute("filter", inputPath, List.of(filterExpr), System.out);
+                bh.consume(1);
             }
             catch (IOException e)
             {
@@ -231,7 +236,8 @@ public class EngineBenchmarks
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
             {
-                multi.streamExecute("filter", inputPath, List.of(filterExpr), ps);
+                multi.streamExecute("filter", inputPath, List.of(filterExpr), System.out);
+                bh.consume(1);
             }
             catch (IOException e)
             {
