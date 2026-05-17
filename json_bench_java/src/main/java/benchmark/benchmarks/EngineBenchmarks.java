@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -48,8 +49,15 @@ public class EngineBenchmarks
     })
     public String mapOp;
 
+    @Param({
+            //"inmem",
+            "stream"
+    })
+    public String mode;
+
     private final ObjectMapper mapper = new ObjectMapper();
     private JsonNode inputRoot;
+    private Path inputPath;
 
     private SingleEngine single;
     private MultiEngine multi;
@@ -63,22 +71,30 @@ public class EngineBenchmarks
     {
         Path p = Path.of("..\\data\\" + fileName);
 
-        String json = Files.readString(p);
-        inputRoot = mapper.readTree(json);
+        if ("inmem".equals(mode))
+        {
+            String json = Files.readString(p);
+            inputRoot = mapper.readTree(json);
+        }
+        else
+        {
+            inputRoot = null;
+            inputPath = p;
+        }
 
         single = new SingleEngine();
         multi = new MultiEngine();
 
         if (fileName.contains("_3"))
         {
-            String predValue = filterField.equals("id") ? "5" : "30";
-            String operator = filterField.equals("id") ? "==" : "\">\"";
+            String predValue = filterField.equals("id") ? "5555" : "3012";
+            String operator = filterField.equals("id") ? "==" : ">";
             filterExpr = ".users[?" + filterField + operator + predValue + "].nested_0.nested_1.nested_2";
         }
         else
         {
-            String predValue = filterField.equals("id") ? "10" : "40";
-            String operator = filterField.equals("id") ? "\"<\"" : "!=";
+            String predValue = filterField.equals("id") ? "100" : "4099";
+            String operator = filterField.equals("id") ? "<" : "!=";
             filterExpr = ".users[?" + filterField + operator + predValue + "]";
         }
 
@@ -91,13 +107,45 @@ public class EngineBenchmarks
     @Benchmark
     public void mapSingle(Blackhole bh)
     {
-        bh.consume(single.execute("map", inputRoot, mapArgs));
+        if ("inmem".equals(mode))
+        {
+            bh.consume(single.execute("map", inputRoot, mapArgs));
+        }
+        else
+        {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
+            {
+                single.streamExecute("map", inputPath, mapArgs, ps);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+            bh.consume(baos.toByteArray().length);
+        }
     }
 
     @Benchmark
     public void mapMulti(Blackhole bh)
     {
-        bh.consume(multi.execute("map", inputRoot, mapArgs));
+        if ("inmem".equals(mode))
+        {
+            bh.consume(multi.execute("map", inputRoot, mapArgs));
+        }
+        else
+        {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
+            {
+                multi.streamExecute("map", inputPath, mapArgs, ps);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+            bh.consume(baos.toByteArray().length);
+        }
 
     }
 
@@ -106,13 +154,45 @@ public class EngineBenchmarks
     @Benchmark
     public void lengthSingle(Blackhole bh)
     {
-        bh.consume(single.execute("length", inputRoot, lengthArgs));
+        if ("inmem".equals(mode))
+        {
+            bh.consume(single.execute("length", inputRoot, lengthArgs));
+        }
+        else
+        {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
+            {
+                single.streamExecute("length", inputPath, lengthArgs, ps);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+            bh.consume(baos.toByteArray().length);
+        }
     }
 
     @Benchmark
     public void lengthMulti(Blackhole bh)
     {
-        bh.consume(multi.execute("length", inputRoot, lengthArgs));
+        if ("inmem".equals(mode))
+        {
+            bh.consume(multi.execute("length", inputRoot, lengthArgs));
+        }
+        else
+        {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
+            {
+                multi.streamExecute("length", inputPath, lengthArgs, ps);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+            bh.consume(baos.toByteArray().length);
+        }
     }
 
     // FILTER benchmarks
@@ -120,12 +200,44 @@ public class EngineBenchmarks
     @Benchmark
     public void filterSingle(Blackhole bh)
     {
-        bh.consume(single.execute("filter", inputRoot, List.of(filterExpr)));
+        if ("inmem".equals(mode))
+        {
+            bh.consume(single.execute("filter", inputRoot, List.of(filterExpr)));
+        }
+        else
+        {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
+            {
+                single.streamExecute("filter", inputPath, List.of(filterExpr), ps);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+            bh.consume(baos.toByteArray().length);
+        }
     }
 
     @Benchmark
     public void filterMulti(Blackhole bh)
     {
-        bh.consume(multi.execute("filter", inputRoot, List.of(filterExpr)));
+        if ("inmem".equals(mode))
+        {
+            bh.consume(multi.execute("filter", inputRoot, List.of(filterExpr)));
+        }
+        else
+        {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
+            {
+                multi.streamExecute("filter", inputPath, List.of(filterExpr), ps);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException(e);
+            }
+            bh.consume(baos.toByteArray().length);
+        }
     }
 }

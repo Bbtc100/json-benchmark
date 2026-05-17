@@ -49,3 +49,8 @@ java -jar target\json_bench_java-1.0-SNAPSHOT.jar single length sample.json .foo
 
 java -jar target\json_bench_java-1.0-SNAPSHOT.jar multi filter sample.json .foo[?id==0].bar
 ```
+
+## Running JMH
+```bash
+java -jar target\json_bench_java-1.0-SNAPSHOT-bench.jar
+```

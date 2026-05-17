@@ -68,6 +68,7 @@
                 <version>3.6.2</version>
                 <executions>
                     <execution>
+                        <id>shade-main</id>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
@@ -77,6 +78,22 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>benchmark.Main</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                    <!-- JMH bench jar -->
+                    <execution>
+                        <id>shade-bench</id>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>bench</shadedClassifierName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.openjdk.jmh.Main</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
