@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import static benchmark.multi.TaskFactory.*;
 
@@ -183,7 +184,24 @@ public class MultiEngine
     {
         String expr = args.isEmpty() ? "." : args.getFirst();
 
-        try(JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
+        streamSerializedByteBatchesWithWindow(inputFile, out, batch -> createFilterTask(batch, expr));
+    }
+
+    private void streamMap(Path inputFile, List<String> args, PrintStream out) throws IOException
+    {
+        String expr = args.isEmpty() ? "." : args.getFirst();
+
+        streamSerializedByteBatchesWithWindow(inputFile, out, batch -> createMapTask(batch, expr));
+    }
+
+    private void streamSerializedByteBatchesWithWindow(
+            Path inputFile,
+            PrintStream out,
+            Function<List<JsonNode>, Callable<byte[]>> taskCreator) throws IOException
+    {
+        final int maxInflight = Math.max(2, workers * 16);
+
+        try (JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
         {
             while (parser.nextToken() != null)
             {
@@ -195,24 +213,36 @@ public class MultiEngine
                         return;
                     }
 
-                    List<Callable<JsonNode>> tasks = new ArrayList<>();
+                    out.print("[");
+                    boolean first = true;
+
+                    List<Future<byte[]>> inflight = new ArrayList<>();
                     List<JsonNode> batch = new ArrayList<>(chunkSizeHint());
 
                     while (parser.nextToken() != JsonToken.END_ARRAY)
                     {
                         batch.add(MAPPER.readTree(parser));
+
                         if (batch.size() >= chunkSizeHint())
                         {
-                            tasks.add(createFilterTask(batch, expr));
-                            batch = new  ArrayList<>(chunkSizeHint());
+                            inflight.add(executor.submit(taskCreator.apply(batch)));
+                            batch = new ArrayList<>(chunkSizeHint());
+                        }
+
+                        if (inflight.size() >= maxInflight)
+                        {
+                            first = writeOneCompletedSerializedFuture(out, inflight, first);
                         }
                     }
 
                     if (!batch.isEmpty())
-                        tasks.add(createFilterTask(batch, expr));
+                        inflight.add(executor.submit(taskCreator.apply(batch)));
 
-                    List<JsonNode> parts = invokeTasks(tasks);
-                    out.println(mergeArrayParts(parts).toString());
+                    while (!inflight.isEmpty())
+                        first = writeOneCompletedSerializedFuture(out, inflight, first);
+
+                    out.println("]");
+                    out.flush();
                     return;
                 }
             }
@@ -221,46 +251,36 @@ public class MultiEngine
         out.println("[]");
     }
 
-    private void streamMap(Path inputFile, List<String> args, PrintStream out) throws IOException
+    private boolean writeOneCompletedSerializedFuture(PrintStream out, List<Future<byte[]>> inflight, boolean first)
     {
-        String expr = args.isEmpty() ? "." : args.getFirst();
+        Future<byte[]> future = inflight.remove(0);
 
-        try(JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
+        final byte[] chunk;
+        try
         {
-            while (parser.nextToken() != null)
-            {
-                if (parser.currentToken() == JsonToken.FIELD_NAME && "users".equals(parser.currentName()))
-                {
-                    if (parser.nextToken() != JsonToken.START_ARRAY)
-                    {
-                        out.println("[]");
-                        return;
-                    }
-
-                    List<Callable<JsonNode>> tasks = new ArrayList<>();
-                    List<JsonNode> batch = new ArrayList<>(chunkSizeHint());
-
-                    while (parser.nextToken() != JsonToken.END_ARRAY)
-                    {
-                        batch.add(MAPPER.readTree(parser));
-                        if (batch.size() >= chunkSizeHint())
-                        {
-                            tasks.add(createMapTask(batch, expr));
-                            batch = new  ArrayList<>(chunkSizeHint());
-                        }
-                    }
-
-                    if (!batch.isEmpty())
-                        tasks.add(createMapTask(batch, expr));
-
-                    List<JsonNode> parts = invokeTasks(tasks);
-                    out.println(mergeArrayParts(parts).toString());
-                    return;
-                }
-            }
+            chunk = future.get();
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Parallel execution was interrupted", e);
+        }
+        catch (ExecutionException e)
+        {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtimeException)
+                throw runtimeException;
+            throw new RuntimeException("Parallel execution failed", cause);
         }
 
-        out.println("[]");
+        if (chunk == null || chunk.length == 0)
+            return first;
+
+        if (!first)
+            out.print(",");
+
+        out.write(chunk, 0, chunk.length);
+        return false;
     }
 
     private JsonNode executeMapInParallel(Command command, JsonNode input, List<String> args)
@@ -471,7 +491,7 @@ public class MultiEngine
 
     private int chunkSizeHint()
     {
-        return Math.max(1, 1024 / workers);
+        return Math.max(1, 16384 / workers);
     }
 
     private void register(Command command)

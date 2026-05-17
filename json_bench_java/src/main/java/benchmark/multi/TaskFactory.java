@@ -4,6 +4,7 @@ import benchmark.core.Command;
 import benchmark.core.commands.MapCommand;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import java.util.List;
@@ -33,38 +34,52 @@ public class TaskFactory
         };
     }
 
-    public static Callable<JsonNode> createFilterTask(List<JsonNode> batch, String expr)
+    public static Callable<byte[]> createFilterTask(List<JsonNode> batch, String expr)
     {
         return () ->
         {
-            ArrayNode filtered = MAPPER.createArrayNode();
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream(batch.size() * 256);
+            ObjectWriter writer = MAPPER.writer();
 
+            boolean first = true;
             for (JsonNode item : batch)
             {
                 JsonNode result = applyStreamingFilterExpression(item, expr);
-                if (result != null && !result.isNull())
-                    filtered.add(result);
+                if (result == null || result.isNull()) continue;
+
+                if (!first) baos.write(',');
+                writer.writeValue(baos, result);
+                first = false;
             }
 
-            return filtered;
+            return baos.toByteArray();
         };
 
     }
 
-    public static Callable<JsonNode> createMapTask(List<JsonNode> batch, String expr)
+    public static Callable<byte[]> createMapTask(List<JsonNode> batch, String expr)
     {
         return () ->
         {
-            ArrayNode mapped = MAPPER.createArrayNode();
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream(batch.size() * 256);
+            ObjectWriter writer = MAPPER.writer();
             MapCommand mapCommand = new MapCommand();
+
+            boolean first = true;
 
             for (JsonNode item : batch)
             {
                 JsonNode result = mapCommand.execute(item, List.of(expr));
-                mapped.add(result);
+                if (result == null || result.isNull()) continue;
+
+                if (!first)
+                    baos.write(',');
+
+                writer.writeValue(baos, result);
+                first = false;
             }
 
-            return mapped;
+            return baos.toByteArray();
         };
     }
 }

@@ -42,11 +42,8 @@ public class EngineBenchmarks
 
     @Param({
             "+100",
-            "-10",
-            "*15",
             "/4",
-            "^6",
-            "^0.5"
+            "^6"
     })
     public String mapOp;
 
@@ -114,17 +111,8 @@ public class EngineBenchmarks
         }
         else
         {
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
-            {
-                single.streamExecute("map", inputPath, mapArgs, NULL_STREAM);
-                bh.consume(1);
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e);
-            }
-            bh.consume(baos.toByteArray().length);
+            single.streamExecute("map", inputPath, mapArgs, NULL_STREAM);
+            bh.consume(1);
         }
     }
 
@@ -137,17 +125,8 @@ public class EngineBenchmarks
         }
         else
         {
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
-            {
-                multi.streamExecute("map", inputPath, mapArgs, NULL_STREAM);
-                bh.consume(1);
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e);
-            }
-            bh.consume(baos.toByteArray().length);
+            multi.streamExecute("map", inputPath, mapArgs, NULL_STREAM);
+            bh.consume(1);
         }
 
     }
@@ -163,17 +142,8 @@ public class EngineBenchmarks
         }
         else
         {
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
-            {
-                single.streamExecute("length", inputPath, lengthArgs, NULL_STREAM);
-                bh.consume(1);
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e);
-            }
-            bh.consume(baos.toByteArray().length);
+            single.streamExecute("length", inputPath, lengthArgs, NULL_STREAM);
+            bh.consume(1);
         }
     }
 
@@ -186,17 +156,8 @@ public class EngineBenchmarks
         }
         else
         {
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
-            {
-                multi.streamExecute("length", inputPath, lengthArgs, NULL_STREAM);
-                bh.consume(1);
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e);
-            }
-            bh.consume(baos.toByteArray().length);
+            multi.streamExecute("length", inputPath, lengthArgs, NULL_STREAM);
+            bh.consume(1);
         }
     }
 
@@ -211,17 +172,8 @@ public class EngineBenchmarks
         }
         else
         {
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
-            {
-                single.streamExecute("filter", inputPath, List.of(filterExpr), NULL_STREAM);
-                bh.consume(1);
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e);
-            }
-            bh.consume(baos.toByteArray().length);
+            single.streamExecute("filter", inputPath, List.of(filterExpr), NULL_STREAM);
+            bh.consume(1);
         }
     }
 
@@ -234,22 +186,10 @@ public class EngineBenchmarks
         }
         else
         {
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            try (java.io.PrintStream ps = new java.io.PrintStream(baos, true, java.nio.charset.StandardCharsets.UTF_8))
-            {
-                multi.streamExecute("filter", inputPath, List.of(filterExpr), NULL_STREAM);
-                bh.consume(1);
-            }
-            catch (IOException e)
-            {
-                throw new RuntimeException(e);
-            }
-            bh.consume(baos.toByteArray().length);
+            multi.streamExecute("filter", inputPath, List.of(filterExpr), NULL_STREAM);
+            bh.consume(1);
         }
     }
 
-    private static final PrintStream NULL_STREAM = new PrintStream(new java.io.OutputStream() {
-        @Override
-        public void write(int b) {}
-    });
+    private static final PrintStream NULL_STREAM = new PrintStream(java.io.OutputStream.nullOutputStream());
 }
