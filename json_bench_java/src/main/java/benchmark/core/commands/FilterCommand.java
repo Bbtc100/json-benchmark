@@ -15,6 +15,7 @@ import java.util.List;
 
 import static benchmark.core.commands.FilterPredicate.*;
 import static benchmark.core.commands.StreamingArrayProcessor.processArray;
+import static benchmark.core.commands.FilterExpressionParser.*;
 
 public class FilterCommand implements Command, StreamingCommand
 {
@@ -40,6 +41,34 @@ public class FilterCommand implements Command, StreamingCommand
         processArray(inputFile, element -> streamFilterElement(element, filterExpr), out);
     }
 
+    public static JsonNode applyStreamingFilterExpression(JsonNode node, String expr)
+    {
+        if (expr == null || expr.isBlank() || ".".equals(expr))
+            return node;
+
+        Parts parts = split(expr);
+
+        if (parts.predicateText() == null)
+        {
+            FilterCommand filterCommand = new FilterCommand();
+            JsonNode result = filterCommand.execute(node, List.of(expr));
+            return (result == null || result.isNull()) ? null : result;
+        }
+
+        Predicate predicate = parse(parts.predicateText());
+        if (!matches(node, predicate))
+            return null;
+
+        if (parts.tail() == null || parts.tail().isBlank())
+            return node;
+
+        String tailExpr = parts.tail().startsWith(".") ? parts.tail() : "." + parts.tail();
+        FilterCommand filterCommand = new FilterCommand();
+        JsonNode result = filterCommand.execute(node, List.of(tailExpr));
+
+        return (result == null || result.isNull()) ? null : result;
+    }
+
     private JsonNode streamFilterElement(JsonNode element, String filterExpr)
     {
         if (filterExpr == null || filterExpr.isBlank() || ".".equals(filterExpr))
@@ -48,7 +77,7 @@ public class FilterCommand implements Command, StreamingCommand
         if (!filterExpr.startsWith("."))
             throw new IllegalArgumentException("Expression must start with '.'");
 
-        FilterExpressionParts parts = splitFilterExpression(filterExpr);
+        Parts parts = split(filterExpr);
 
         if (parts.predicateText() != null)
         {
@@ -69,38 +98,6 @@ public class FilterCommand implements Command, StreamingCommand
         JsonNode result = applyFilter(element, elementExpr);
         return (result == null || result.isNull()) ? null : result;
     }
-
-    private FilterExpressionParts splitFilterExpression(String filterExpr)
-    {
-        if (filterExpr == null || filterExpr.isBlank() || ".".equals(filterExpr))
-            return new FilterExpressionParts("", null, null);
-
-        if (!filterExpr.startsWith("."))
-            throw new IllegalArgumentException("Expression must start with '.'");
-
-        String body = filterExpr.substring(1);
-        if (body.startsWith("users"))
-            body = body.substring("users".length());
-
-        int predStart = body.indexOf("[?");
-        if (predStart < 0)
-            return new FilterExpressionParts(body, null, null);
-
-        int predEnd = body.indexOf("]",  predStart + 2);
-        if (predEnd < 0)
-            throw new IllegalArgumentException("Unterminated predicate expression in: " + filterExpr);
-
-        String prefix = body.substring(0, predStart);
-        String predText = body.substring(predStart + 2, predEnd).trim();
-        String tail = body.substring(predEnd + 1);
-
-        if (tail != null && tail.isBlank())
-            tail = null;
-
-        return new FilterExpressionParts(prefix, predText, tail);
-    }
-
-    private record FilterExpressionParts(String prefix, String predicateText, String tail) {}
 
     private JsonNode applyFilter(JsonNode node, String filterExpr)
     {

@@ -39,13 +39,18 @@ A small Java JSON processor with jq-like commands and option to use single- or m
 From the project root, you can compile and run the Java code using the following commands:
 ```bash
 # Compile the Java code
-mvn clean package dependency:copy-dependencies -DincludeScope=runtime
+mvn clean package
 
 # Show help
-java -cp "target\classes;target\dependency\*" benchmark.Main help
+java -jar target\json_bench_java-1.0-SNAPSHOT.jar help
 
 # Run a command against a JSON file
-java -cp "target\classes;target\dependency\*" benchmark.Main single length sample.json .foo
+java -jar target\json_bench_java-1.0-SNAPSHOT.jar single length sample.json .foo
 
-java -cp "target\classes;target\dependency\*" benchmark.Main single filter sample.json .foo[?id==0].bar
+java -jar target\json_bench_java-1.0-SNAPSHOT.jar multi filter sample.json .foo[?id==0].bar
+```
+
+## Running JMH
+```bash
+java -jar target\json_bench_java-1.0-SNAPSHOT-bench.jar
 ```

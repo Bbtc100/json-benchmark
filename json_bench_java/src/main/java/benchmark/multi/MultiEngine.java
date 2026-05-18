@@ -3,7 +3,6 @@ package benchmark.multi;
 import benchmark.core.Command;
 import benchmark.core.StreamingCommand;
 import benchmark.core.commands.FilterCommand;
-import benchmark.core.commands.FilterPredicate;
 import benchmark.core.commands.LengthCommand;
 import benchmark.core.commands.MapCommand;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -32,8 +31,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
-import static benchmark.core.commands.FilterPredicate.*;
+import static benchmark.multi.TaskFactory.*;
 
 public class MultiEngine
 {
@@ -136,13 +136,13 @@ public class MultiEngine
                            batch.add(MAPPER.readTree(parser));
                            if (batch.size() >= chunkSizeHint())
                            {
-                               tasks.add(lengthTask(command, batch, args));
+                               tasks.add(createLengthTask(command, batch, args));
                                batch = new  ArrayList<>(chunkSizeHint());
                            }
                        }
 
                        if (!batch.isEmpty())
-                           tasks.add(lengthTask(command, batch, args));
+                           tasks.add(createLengthTask(command, batch, args));
 
                        long total = 0;
                        for (Future<Long> future : invokeLongTasks(tasks))
@@ -184,49 +184,24 @@ public class MultiEngine
     {
         String expr = args.isEmpty() ? "." : args.getFirst();
 
-        try(JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
-        {
-            while (parser.nextToken() != null)
-            {
-                if (parser.currentToken() == JsonToken.FIELD_NAME && "users".equals(parser.currentName()))
-                {
-                    if (parser.nextToken() != JsonToken.START_ARRAY)
-                    {
-                        out.println("[]");
-                        return;
-                    }
-
-                    List<Callable<JsonNode>> tasks = new ArrayList<>();
-                    List<JsonNode> batch = new ArrayList<>(chunkSizeHint());
-
-                    while (parser.nextToken() != JsonToken.END_ARRAY)
-                    {
-                        batch.add(MAPPER.readTree(parser));
-                        if (batch.size() >= chunkSizeHint())
-                        {
-                            tasks.add(filterTask(batch, expr));
-                            batch = new  ArrayList<>(chunkSizeHint());
-                        }
-                    }
-
-                    if (!batch.isEmpty())
-                        tasks.add(filterTask(batch, expr));
-
-                    List<JsonNode> parts = invokeTasks(tasks);
-                    out.println(mergeArrayParts(parts).toString());
-                    return;
-                }
-            }
-        }
-
-        out.println("[]");
+        streamSerializedByteBatchesWithWindow(inputFile, out, batch -> createFilterTask(batch, expr));
     }
 
     private void streamMap(Path inputFile, List<String> args, PrintStream out) throws IOException
     {
         String expr = args.isEmpty() ? "." : args.getFirst();
 
-        try(JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
+        streamSerializedByteBatchesWithWindow(inputFile, out, batch -> createMapTask(batch, expr));
+    }
+
+    private void streamSerializedByteBatchesWithWindow(
+            Path inputFile,
+            PrintStream out,
+            Function<List<JsonNode>, Callable<byte[]>> taskCreator) throws IOException
+    {
+        final int maxInflight = Math.max(2, workers * 16);
+
+        try (JsonParser parser = JSON_FACTORY.createParser(inputFile.toFile()))
         {
             while (parser.nextToken() != null)
             {
@@ -238,24 +213,36 @@ public class MultiEngine
                         return;
                     }
 
-                    List<Callable<JsonNode>> tasks = new ArrayList<>();
+                    out.print("[");
+                    boolean first = true;
+
+                    List<Future<byte[]>> inflight = new ArrayList<>();
                     List<JsonNode> batch = new ArrayList<>(chunkSizeHint());
 
                     while (parser.nextToken() != JsonToken.END_ARRAY)
                     {
                         batch.add(MAPPER.readTree(parser));
+
                         if (batch.size() >= chunkSizeHint())
                         {
-                            tasks.add(mapTask(batch, expr));
-                            batch = new  ArrayList<>(chunkSizeHint());
+                            inflight.add(executor.submit(taskCreator.apply(batch)));
+                            batch = new ArrayList<>(chunkSizeHint());
+                        }
+
+                        if (inflight.size() >= maxInflight)
+                        {
+                            first = writeOneCompletedSerializedFuture(out, inflight, first);
                         }
                     }
 
                     if (!batch.isEmpty())
-                        tasks.add(mapTask(batch, expr));
+                        inflight.add(executor.submit(taskCreator.apply(batch)));
 
-                    List<JsonNode> parts = invokeTasks(tasks);
-                    out.println(mergeArrayParts(parts).toString());
+                    while (!inflight.isEmpty())
+                        first = writeOneCompletedSerializedFuture(out, inflight, first);
+
+                    out.println("]");
+                    out.flush();
                     return;
                 }
             }
@@ -264,79 +251,36 @@ public class MultiEngine
         out.println("[]");
     }
 
-    private Callable<Long> lengthTask(Command command, List<JsonNode> batch, List<String> args)
+    private boolean writeOneCompletedSerializedFuture(PrintStream out, List<Future<byte[]>> inflight, boolean first)
     {
-        ArrayNode chunk = MAPPER.createArrayNode();
+        Future<byte[]> future = inflight.remove(0);
 
-        for (JsonNode item : batch)
+        final byte[] chunk;
+        try
         {
-            chunk.add(item);
+            chunk = future.get();
         }
-        return () ->
+        catch (InterruptedException e)
         {
-            JsonNode result = command.execute(chunk, args);
-            if (!result.isNumber())
-                throw new IllegalStateException("Parallel length chunk returned non-numeric output");
-
-            return result.longValue();
-        };
-    }
-
-    private Callable<JsonNode> filterTask(List<JsonNode> batch, String expr)
-    {
-        return () ->
-        {
-            ArrayNode filtered = MAPPER.createArrayNode();
-            FilterExpressionParts parts = splitFilterExpression(expr);
-
-             for (JsonNode item : batch)
-             {
-                 JsonNode result = applyStreamingFilterExpression(item, expr);
-                 if (result != null && !result.isNull())
-                 {
-                     filtered.add(result);
-                 }
-             }
-             return filtered;
-        };
-    }
-
-    private Callable<JsonNode> mapTask(List<JsonNode> batch, String expr)
-    {
-        return () ->
-        {
-            ArrayNode mapped = MAPPER.createArrayNode();
-            MapCommand mapCommand = new  MapCommand();
-
-            String elementExpr = normalizeElementExpr(expr);
-            for (JsonNode item : batch)
-            {
-                JsonNode result = mapCommand.execute(item, List.of(elementExpr));
-                mapped.add(result);
-            }
-            return mapped;
-        };
-    }
-
-    private String normalizeElementExpr(String expr)
-    {
-        if (expr == null || expr.isBlank())
-            return ".";
-
-        if (!expr.startsWith("."))
-            throw new IllegalArgumentException("Expression must start with '.': " + expr);
-
-        String body = expr.substring(1);
-
-        if(body.startsWith("users"))
-        {
-            String tail = body.substring("users".length());
-            if (tail.isEmpty())
-                return ".";
-
-            return tail.startsWith(".") ? tail : "." + tail;
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Parallel execution was interrupted", e);
         }
-        return expr;
+        catch (ExecutionException e)
+        {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtimeException)
+                throw runtimeException;
+            throw new RuntimeException("Parallel execution failed", cause);
+        }
+
+        if (chunk == null || chunk.length == 0)
+            return first;
+
+        if (!first)
+            out.print(",");
+
+        out.write(chunk, 0, chunk.length);
+        return false;
     }
 
     private JsonNode executeMapInParallel(Command command, JsonNode input, List<String> args)
@@ -449,66 +393,6 @@ public class MultiEngine
         return invokeTasks(tasks);
     }
 
-    private JsonNode applyStreamingFilterExpression(JsonNode node, String expr)
-    {
-        if (expr == null || expr.isBlank() || ".".equals(expr))
-            return node;
-
-        FilterExpressionParts parts = splitFilterExpression(expr);
-
-        if (parts.predicateText() == null)
-        {
-            FilterCommand filterCommand = new FilterCommand();
-            JsonNode result = filterCommand.execute(node, List.of(expr));
-            return (result == null || result.isNull()) ? null : result;
-        }
-
-        Predicate predicate = parse(parts.predicateText());
-        if (!matches(node, predicate))
-            return null;
-
-        if (parts.tail() == null || parts.tail().isBlank())
-            return node;
-
-        String tailExpr = parts.tail().startsWith(".") ? parts.tail() : "." + parts.tail();
-        FilterCommand filterCommand = new FilterCommand();
-        JsonNode result = filterCommand.execute(node, List.of(tailExpr));
-
-        return (result == null || result.isNull()) ? null : result;
-    }
-
-    private FilterExpressionParts splitFilterExpression(String filterExpr)
-    {
-        if (filterExpr == null || filterExpr.isBlank() || ".".equals(filterExpr))
-            return new FilterExpressionParts(".", null, null);
-
-        if (!filterExpr.startsWith("."))
-            throw new IllegalArgumentException("Expression must start with '.'");
-
-        String body = filterExpr.substring(1);
-        if (body.startsWith("users"))
-            body = body.substring("users".length());
-
-        int predStart = body.indexOf("[?");
-        if (predStart < 0)
-            return new FilterExpressionParts(body, null, null);
-
-        int predEnd = body.indexOf("]", predStart + 2);
-        if (predEnd < 0)
-            throw new IllegalArgumentException("Unterminated predicate in filter expression: " + filterExpr);
-
-        String prefix = body.substring(0, predStart);
-        String predicateText = body.substring(predStart + 2, predEnd).trim();
-        String tail = body.substring(predEnd + 1);
-
-        if (tail != null && tail.isBlank())
-            tail = null;
-
-        return new FilterExpressionParts(prefix, predicateText, tail);
-    }
-
-    private record FilterExpressionParts(String prefix, String predicateText, String tail) {}
-
     private List<JsonNode> invokeTasks(List<Callable<JsonNode>> tasks)
     {
         List<Future<JsonNode>> futures;
@@ -607,7 +491,7 @@ public class MultiEngine
 
     private int chunkSizeHint()
     {
-        return Math.max(1, 1024 / workers);
+        return Math.max(1, 16384 / workers);
     }
 
     private void register(Command command)
