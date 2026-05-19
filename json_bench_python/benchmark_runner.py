@@ -53,10 +53,9 @@ def benchmark_length():
 
         setup = f"""
 import json
-from pathlib import Path
-from main import length
+from json_bench_python.benchmark_api import length
 
-with open(r"{file_path}", "r") as f:
+with open(r"{file_path}", "r", encoding="utf-8") as f:
     data = json.load(f)
 """
 
@@ -86,10 +85,9 @@ def benchmark_map():
 
             setup = f"""
 import json
-from pathlib import Path
-from main import map_values
+from json_bench_python.benchmark_api import map_values
 
-with open(r"{file_path}", "r") as f:
+with open(r"{file_path}", "r", encoding="utf-8") as f:
     data = json.load(f)
 
 op = "{op}"
@@ -130,10 +128,9 @@ def benchmark_filter():
 
             setup = f"""
 import json
-from pathlib import Path
-from main import filter_data
+from json_bench_python.benchmark_api import filter_data
 
-with open(r"{file_path}", "r") as f:
+with open(r"{file_path}", "r", encoding="utf-8") as f:
     data = json.load(f)
 
 expr = "{expr}"
