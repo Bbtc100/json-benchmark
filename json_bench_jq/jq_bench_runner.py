@@ -62,13 +62,13 @@ def benchmark_length(files):
 def benchmark_map(files):
     map_ops = {
         "+100": (
-            "walk(if type == \"number\" then . + 100 else . end)"
+            "walk(if type == \\\"number\\\" then . + 100 else . end)"
         ),
         "/4": (
-            "walk(if type == \"number\" then . / 4 else . end)"
+            "walk(if type == \\\"number\\\" then . / 4 else . end)"
         ),
         "^6": (
-            "walk(if type == \"number\" then (. * . * . * . * . * .) else . end)"
+            "walk(if type == \\\"number\\\" then (. * . * . * . * . * .) else . end)"
         ),
     }
 
@@ -86,7 +86,7 @@ def benchmark_map(files):
             name = f"map_{safe_op}_{stem}"
 
             command = (
-                f'jq "{jq_expr}" "{file_path}" > nul'
+                f'jq \"{jq_expr}\" "{file_path}" > nul'
             )
 
             run_benchmark(name, command)
@@ -126,7 +126,7 @@ def benchmark_filter(files):
             name = f"filter_{field}_{Path(file_name).stem}"
 
             command = (
-                f'jq \'{expr}\' "{file_path}" > nul'
+                f'jq \"{expr}\" "{file_path}" > nul'
             )
 
             run_benchmark(name, command)
