@@ -46,8 +46,8 @@ def run_benchmark(name: str, command: str):
     subprocess.run(cmd, check=True)
 
 
-def benchmark_length():
-    for file_name in FILES:
+def benchmark_length(files):
+    for file_name in files:
         file_path = DATA_DIR / file_name
 
         name = f"length_{Path(file_name).stem}"
@@ -59,7 +59,7 @@ def benchmark_length():
         run_benchmark(name, command)
 
 
-def benchmark_map():
+def benchmark_map(files):
     map_ops = {
         "+100": (
             "walk(if type == \"number\" then . + 100 else . end)"
@@ -72,7 +72,7 @@ def benchmark_map():
         ),
     }
 
-    for file_name in FILES:
+    for file_name in files:
         file_path = DATA_DIR / file_name
         stem = Path(file_name).stem
 
@@ -92,13 +92,13 @@ def benchmark_map():
             run_benchmark(name, command)
 
 
-def benchmark_filter():
+def benchmark_filter(files):
     filter_fields = [
         "id",
         "age"
     ]
 
-    for file_name in FILES:
+    for file_name in files:
         nested = "_3" in file_name
         file_path = DATA_DIR / file_name
 
@@ -132,10 +132,24 @@ def benchmark_filter():
             run_benchmark(name, command)
 
 
+def run_small(fn):
+    print("\n=== SMALL FILES ===")
+    fn(SMALL_FILES)
+
+def run_large(fn):
+    print("\n=== LARGE FILES ===")
+    fn(LARGE_FILES)
+
+
 def main():
-    benchmark_length()
-    benchmark_map()
-    benchmark_filter()
+
+    run_small(benchmark_length)
+    run_small(benchmark_map)
+    run_small(benchmark_filter)
+
+    run_large(benchmark_length)
+    run_large(benchmark_map)
+    run_large(benchmark_filter)
 
     print("\nAll jq benchmarks completed.")
 
