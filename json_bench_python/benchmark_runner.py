@@ -1,4 +1,3 @@
-import json
 import subprocess
 from pathlib import Path
 
@@ -20,23 +19,26 @@ RESULTS_DIR = Path("python_benchmark_results")
 RESULTS_DIR.mkdir(exist_ok=True)
 
 PYTHON = "python"
-PYPERF = [PYTHON, "-m", "pyperf", "command"]
+PYPERF = [PYTHON, "-m", "pyperf", "timeit"]
 
 COMMON_ARGS = [
-    "--rigorous",
-    "--duplicate", "3",
-    "--warmups", "5"
+    "--rigorous"
 ]
 
 
-def run_benchmark(name: str, command: list[str]):
+def run_benchmark(name: str, setup: str, statement: str):
     output_file = RESULTS_DIR / f"{name}.json"
 
     cmd = (
         PYPERF
         + COMMON_ARGS
-        + ["--output", str(output_file), "--"]
-        + command
+        + [
+            "--setup",
+            setup,
+            "--output",
+            str(output_file),
+            statement,
+        ]
     )
 
     print(f"Running benchmark: {name}")
@@ -47,15 +49,20 @@ def benchmark_length():
     for file_name in FILES:
         name = f"length_{Path(file_name).stem}"
 
-        cmd = [
-            PYTHON,
-            "main.py",
-            "length",
-            str(DATA_DIR / file_name),
-            ".users"
-        ]
+        file_path = DATA_DIR / file_name
 
-        run_benchmark(name, cmd)
+        setup = f"""
+import json
+from pathlib import Path
+from main import length
+
+with open(r"{file_path}", "r") as f:
+    data = json.load(f)
+"""
+
+        statement = 'result = length(data, ".users")'
+
+        run_benchmark(name, setup, statement)
 
 
 def benchmark_map():
@@ -66,6 +73,8 @@ def benchmark_map():
     ]
 
     for file_name in FILES:
+        file_path = DATA_DIR / file_name
+
         for op in map_ops:
             safe_op = (
                 op.replace("+", "plus")
@@ -75,15 +84,20 @@ def benchmark_map():
 
             name = f"map_{safe_op}_{Path(file_name).stem}"
 
-            cmd = [
-                PYTHON,
-                "main.py",
-                "map",
-                str(DATA_DIR / file_name),
-                op
-            ]
+            setup = f"""
+import json
+from pathlib import Path
+from main import map_values
 
-            run_benchmark(name, cmd)
+with open(r"{file_path}", "r") as f:
+    data = json.load(f)
+
+op = "{op}"
+"""
+
+            statement = "result = map_values(data, op)"
+
+            run_benchmark(name, setup, statement)
 
 
 def benchmark_filter():
@@ -94,6 +108,7 @@ def benchmark_filter():
 
     for file_name in FILES:
         nested = "_3" in file_name
+        file_path = DATA_DIR / file_name
 
         for field in filter_fields:
 
@@ -113,15 +128,20 @@ def benchmark_filter():
 
             name = f"filter_{field}_{Path(file_name).stem}"
 
-            cmd = [
-                PYTHON,
-                "main.py",
-                "filter",
-                str(DATA_DIR / file_name),
-                expr
-            ]
+            setup = f"""
+import json
+from pathlib import Path
+from main import filter_data
 
-            run_benchmark(name, cmd)
+with open(r"{file_path}", "r") as f:
+    data = json.load(f)
+
+expr = "{expr}"
+"""
+
+            statement = "result = filter_data(data, expr)"
+
+            run_benchmark(name, setup, statement)
 
 
 def main():
