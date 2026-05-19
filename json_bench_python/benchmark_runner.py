@@ -8,11 +8,9 @@ FILES = [
     "data_10k.json",
     "data_100k.json",
     "data_1M.json",
-    "data_10M.json",
     "data_10k_3.json",
     "data_100k_3.json",
-    "data_1M_3.json",
-    "data_10M_3.json"
+    "data_1M_3.json"
 ]
 
 RESULTS_DIR = Path("python_benchmark_results")
@@ -46,8 +44,21 @@ def run_benchmark(name: str, setup: str, statement: str):
 
 
 def benchmark_length():
+
+    existing = {
+        "length_data_10k",
+        "length_data_100k",
+        "length_data_1M",
+        "length_data_10k_3",
+        "length_data_100k_3",
+        "length_data_1M_3"
+    }
+
     for file_name in FILES:
         name = f"length_{Path(file_name).stem}"
+
+        if name in existing:
+            continue
 
         file_path = DATA_DIR / file_name
 
@@ -65,6 +76,30 @@ with open(r"{file_path}", "r", encoding="utf-8") as f:
 
 
 def benchmark_map():
+
+    existing = {
+        "map_div4_data_10k",
+        "map_div4_data_100k",
+        "map_div4_data_1M",
+        "map_div4_data_10k_3",
+        "map_div4_data_100k_3",
+        "map_div4_data_1M_3",
+
+        "map_plus100_data_10k",
+        "map_plus100_data_100k",
+        "map_plus100_data_1M",
+        "map_plus100_data_10k_3",
+        "map_plus100_data_100k_3",
+        "map_plus100_data_1M_3",
+
+        "map_pow6_data_10k",
+        "map_pow6_data_100k",
+        "map_pow6_data_1M",
+        "map_pow6_data_1M_3"
+        "map_pow6_data_10k_3",
+        "map_pow6_data_100k_3"
+    }
+
     map_ops = [
         "+100",
         "/4",
@@ -82,6 +117,9 @@ def benchmark_map():
             )
 
             name = f"map_{safe_op}_{Path(file_name).stem}"
+
+            if name in existing:
+                continue
 
             setup = f"""
 import json
