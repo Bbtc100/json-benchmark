@@ -51,7 +51,7 @@ def benchmark_length():
         "length_data_1M",
         "length_data_10k_3",
         "length_data_100k_3",
-        "length_data_1M_3"
+        "length_data_1M_3",
     }
 
     for file_name in FILES:
@@ -95,9 +95,9 @@ def benchmark_map():
         "map_pow6_data_10k",
         "map_pow6_data_100k",
         "map_pow6_data_1M",
-        "map_pow6_data_1M_3"
+        "map_pow6_data_1M_3",
         "map_pow6_data_10k_3",
-        "map_pow6_data_100k_3"
+        "map_pow6_data_100k_3",
     }
 
     map_ops = [
