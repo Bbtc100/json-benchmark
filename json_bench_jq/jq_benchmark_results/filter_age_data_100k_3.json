@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "command": "jq \".users[] | select(.age > 3012) | .nested_0.nested_1.nested_2\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_100k_3.json\" > nul",
+      "mean": 0.51294836,
+      "stddev": 0.003558153669109846,
+      "median": 0.5135479000000001,
+      "user": 0.403125,
+      "system": 0.1053125,
+      "min": 0.5071513000000001,
+      "max": 0.5158256,
+      "times": [
+        0.5124194000000001,
+        0.5071513000000001,
+        0.5135479000000001,
+        0.5158256,
+        0.5157976000000001
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
