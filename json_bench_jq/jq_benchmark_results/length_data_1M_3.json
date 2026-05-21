@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "command": "jq \".users | length\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_1M_3.json\" > nul",
+      "mean": 4.447002236,
+      "stddev": 0.04485855066554199,
+      "median": 4.472762876,
+      "user": 3.71625,
+      "system": 0.7159375,
+      "min": 4.375192676,
+      "max": 4.478372976,
+      "times": [
+        4.478372976,
+        4.375192676,
+        4.478185476,
+        4.472762876,
+        4.430497176
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "command": "jq \"walk(if type == \\\"number\\\" then . / 4 else . end)\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_100k_3.json\" > nul",
+      "mean": 41.562437086,
+      "stddev": 0.16564647922214365,
+      "median": 41.564733066,
+      "user": 14.115625,
+      "system": 27.39875,
+      "min": 41.346272466,
+      "max": 41.735330466,
+      "times": [
+        41.709989666000006,
+        41.455859766,
+        41.346272466,
+        41.564733066,
+        41.735330466
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
