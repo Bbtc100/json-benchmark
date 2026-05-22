@@ -34,35 +34,60 @@ def add_row(rows, tool, operation, dataset, variant, mean_ms, stddev_ms):
 
 
 def load_jmh(rows):
-    with open(JMH_FILE, encoding="utf-8") as f:
+    with open(JMH_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    for benchmark in data:
+    for entry in data:
 
-        benchmark_name = benchmark["benchmark"].split(".")[-1]
+        benchmark_name = entry["benchmark"].split(".")[-1]
+        params = entry.get("params", {})
 
-        params = benchmark["params"]
+        if benchmark_name.endswith("Single"):
+            tool = "java_single"
+        elif benchmark_name.endswith("Multi"):
+            tool = "java_multi"
+        else:
+            tool = "java"
 
-        file_name = params["fileName"]
-        stem = Path(file_name).stem
+        if benchmark_name.startswith("length"):
+            operation = "length"
 
-        dataset, variant = parse_dataset(stem)
+        elif benchmark_name.startswith("filter"):
+            field = params["filterField"]
+            operation = f"filter_{field}"
 
-        operation = benchmark_name
+        elif benchmark_name.startswith("map"):
+            op = params["mapOp"]
 
-        mean_ms = benchmark["primaryMetric"]["score"]
+            op_name = (
+                op.replace("+", "plus")
+                  .replace("/", "div")
+                  .replace("^", "pow")
+            )
 
-        stddev_ms = benchmark["primaryMetric"]["scoreError"]
+            operation = f"map_{op_name}"
 
-        add_row(
-            rows,
-            "java",
-            operation,
-            dataset,
-            variant,
-            mean_ms,
-            stddev_ms,
+        else:
+            operation = benchmark_name
+
+        dataset = Path(params["fileName"]).stem
+
+        variant = (
+            "nested"
+            if dataset.endswith("_3")
+            else "normal"
         )
+
+        metric = entry["primaryMetric"]
+
+        rows.append({
+            "tool": tool,
+            "operation": operation,
+            "dataset": dataset,
+            "variant": variant,
+            "mean_ms": metric["score"],
+            "stddev_ms": metric["scoreError"],
+        })
 
 
 def load_pyperf(rows):
