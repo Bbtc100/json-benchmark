@@ -12,16 +12,17 @@ The goal is to implement multiple basic JSON processing solutions and analyze th
 
 - Single-threaded implementation
 - Multi-threaded implementation
-- JSON parsing using the `Jackson` library
 
 ### Python
 
 - Single-threaded implementation
-- JSON parsing using the built-in `json` module
+
+### [jq](https://jqlang.org/)
+- Popular, lightweight command-line JSON processor
 
 ## Supported Operations
 
-The following JSON processing tasks will be implemented (for now):
+The following JSON processing tasks are implemented (for now):
 
 - **Filtering**
 - **Length calculation**
@@ -29,24 +30,15 @@ The following JSON processing tasks will be implemented (for now):
 
 ## Benchmarking Methodology
 
-Performance will be evaluated using:
+Performance is evaluated using:
 
-- **Java:** `JMH` (Java Microbenchmark Harness)
+- **Java:** `JMH`
 - **Python:** `pyperf`
+- **jq:** `Hyperfine`
+
+All benchmarks will be evaluated using `Hyperfine` soon.
 
 Benchmarks will be executed on **synthetically generated JSON datasets** of varying sizes.
-
-## Metrics
-
-The following metrics will be collected:
-
-- Execution time
-- CPU usage
-- Memory usage
-
-## Input Data
-
-JSON files of different sizes will be generated to test scalability and performance under increasing load.
 
 ## Objective
 
