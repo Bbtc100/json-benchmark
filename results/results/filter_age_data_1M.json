@@ -1,0 +1,128 @@
+{
+  "results": [
+    {
+      "command": "java -jar \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\json_bench_java\\target\\json_bench_java-1.0-SNAPSHOT.jar\" \"single\" \"filter\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_1M.json\" \".users[?age<23]\" > nul",
+      "mean": 1.28267678,
+      "stddev": 0.014530983057694331,
+      "median": 1.27354372,
+      "user": 3.8709375,
+      "system": 0.685,
+      "min": 1.27094422,
+      "max": 1.30395262,
+      "times": [
+        1.27094422,
+        1.27323082,
+        1.27354372,
+        1.30395262,
+        1.29171252
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "command": "java -jar \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\json_bench_java\\target\\json_bench_java-1.0-SNAPSHOT.jar\" \"multi\" \"filter\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_1M.json\" \".users[?age<23]\" > nul",
+      "mean": 0.94630714,
+      "stddev": 0.017834659208042076,
+      "median": 0.94817342,
+      "user": 3.3959375,
+      "system": 0.8850000000000001,
+      "min": 0.9186468200000001,
+      "max": 0.9630913200000001,
+      "times": [
+        0.94128772,
+        0.94817342,
+        0.9186468200000001,
+        0.9630913200000001,
+        0.9603364200000001
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "command": "python \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\json_bench_python\\main.py\" \"filter\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_1M.json\" \".users[?age<23]\" > nul",
+      "mean": 3.93845454,
+      "stddev": 0.0202174942892782,
+      "median": 3.93631912,
+      "user": 3.7271875000000003,
+      "system": 0.200625,
+      "min": 3.91203722,
+      "max": 3.96090902,
+      "times": [
+        3.96090902,
+        3.93631912,
+        3.91203722,
+        3.95581722,
+        3.92719012
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "command": "jq \".users[] | select(.age < 23)\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_1M.json\" > nul",
+      "mean": 13.547798259999999,
+      "stddev": 0.056924448073108536,
+      "median": 13.55211142,
+      "user": 5.2615625,
+      "system": 8.2725,
+      "min": 13.49029622,
+      "max": 13.61920642,
+      "times": [
+        13.55211142,
+        13.58544002,
+        13.49029622,
+        13.491937219999999,
+        13.61920642
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

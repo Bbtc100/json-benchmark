@@ -33,8 +33,8 @@ SMALL_FILES = [
 ]
 
 LARGE_FILES = [
-    "data_10M.json",
-    "data_10M_3.json",
+    "data_5M.json",
+    "data_5M_3.json",
 ]
 
 HYPERFINE_COMMON = [
