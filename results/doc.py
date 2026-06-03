@@ -14,17 +14,18 @@ COLORS = {
     "jq": "#d62728",
 }
 
-
-def normalize_dataset(name: str):
-    parts = name.split("_")
-
-    if len(parts) == 1:
-        return name
-
-    if parts[-1].isdigit():
-        return "_".join(parts[:-1])
-
-    return name
+BASE_ORDER = [
+    "data_10k",
+    "data_100k",
+    "data_1M",
+    "data_5M",
+    "data_10M",
+    "data_10k_3",
+    "data_100k_3",
+    "data_1M_3",
+    "data_5M_3",
+    "data_10M_3",
+]
 
 
 def create_chart(df, operation, variant):
@@ -37,21 +38,14 @@ def create_chart(df, operation, variant):
     if chart_df.empty:
         return
 
-    base_order = ["data_10k", "data_100k", "data_1M", "data_10M"]
 
-    chart_df["dataset_base"] = chart_df["dataset"].apply(normalize_dataset)
-
-    chart_df = chart_df[
-        chart_df["dataset_base"].isin(base_order)
-    ].copy()
-
-    chart_df["dataset_base"] = pd.Categorical(
-        chart_df["dataset_base"],
-        categories=base_order,
+    chart_df["dataset"] = pd.Categorical(
+        chart_df["dataset"],
+        categories=BASE_ORDER,
         ordered=True
     )
 
-    chart_df = chart_df.sort_values("dataset_base")
+    chart_df = chart_df.sort_values("dataset")
 
     fig = go.Figure()
 
@@ -59,10 +53,8 @@ def create_chart(df, operation, variant):
 
         tool_df = chart_df[chart_df["tool"] == tool].copy()
 
-        tool_df["dataset_base"] = tool_df["dataset"].apply(normalize_dataset)
-
-        tool_df["sort_key"] = tool_df["dataset_base"].apply(
-            lambda x: base_order.index(x) if x in base_order else 999
+        tool_df["sort_key"] = tool_df["dataset"].apply(
+            lambda x: BASE_ORDER.index(x) if x in BASE_ORDER else 999
         )
 
         tool_df = tool_df.sort_values("sort_key").drop(columns=["sort_key"])
@@ -79,7 +71,7 @@ def create_chart(df, operation, variant):
                 go.Bar(
                     name=f"{tool}",
                     hovertemplate="Dataset: %{x}<br>Runtime: %{y:.2f} ms<extra></extra>",
-                    x=normal_df["dataset_base"],
+                    x=normal_df["dataset"],
                     y=normal_df["mean_ms"],
                     error_y=dict(
                         type="data",
@@ -98,7 +90,7 @@ def create_chart(df, operation, variant):
                 go.Bar(
                     name=f"{tool} (10M)",
                     hovertemplate="Dataset: %{x}<br>Runtime: %{y:.2f} ms<extra></extra>",
-                    x=large_df["dataset_base"],
+                    x=large_df["dataset"],
                     y=large_df["mean_ms"],
                     error_y=dict(
                         type="data",
@@ -120,6 +112,8 @@ def create_chart(df, operation, variant):
         hovermode="x unified"
     )
 
+    fig.update_yaxes(type="log")
+
     filename = OUTPUT_DIR / f"{operation}_{variant}.html"
 
     fig.write_html(filename, include_plotlyjs="cdn")
@@ -130,16 +124,12 @@ def main():
 
     df = pd.read_csv(CSV_FILE)
 
-    operations = sorted(df["operation"].unique())
-    variants = sorted(df["variant"].unique())
-
-    for operation in operations:
-        for variant in variants:
-            create_chart(
-                df,
-                operation,
-                variant
-            )
+    for operation, variant in (
+        df[["operation", "variant"]]
+        .drop_duplicates()
+        .itertuples(index=False)
+    ):
+        create_chart(df, operation, variant)
 
 
 if __name__ == "__main__":

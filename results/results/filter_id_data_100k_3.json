@@ -1,0 +1,128 @@
+{
+  "results": [
+    {
+      "command": "java -jar \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\json_bench_java\\target\\json_bench_java-1.0-SNAPSHOT.jar\" \"single\" \"filter\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_100k_3.json\" \".users[?id==5555].nested_0.nested_1.nested_2\" > nul",
+      "mean": 0.5317364320000001,
+      "stddev": 0.007163800065607636,
+      "median": 0.5360189320000001,
+      "user": 0.9568750000000001,
+      "system": 0.3765625,
+      "min": 0.5233378320000001,
+      "max": 0.537654932,
+      "times": [
+        0.5360189320000001,
+        0.537149932,
+        0.524520532,
+        0.537654932,
+        0.5233378320000001
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "command": "java -jar \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\json_bench_java\\target\\json_bench_java-1.0-SNAPSHOT.jar\" \"multi\" \"filter\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_100k_3.json\" \".users[?id==5555].nested_0.nested_1.nested_2\" > nul",
+      "mean": 0.5227227120000001,
+      "stddev": 0.0018269382603142365,
+      "median": 0.5223072320000001,
+      "user": 0.9100000000000001,
+      "system": 0.3890625,
+      "min": 0.5204202320000001,
+      "max": 0.5247782320000001,
+      "times": [
+        0.5223072320000001,
+        0.5247782320000001,
+        0.521743932,
+        0.5204202320000001,
+        0.5243639320000001
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "command": "python \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\json_bench_python\\main.py\" \"filter\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_100k_3.json\" \".users[?id==5555].nested_0.nested_1.nested_2\" > nul",
+      "mean": 0.5755278720000001,
+      "stddev": 0.005566003050933412,
+      "median": 0.5757772320000001,
+      "user": 0.46312499999999995,
+      "system": 0.0984375,
+      "min": 0.5700531320000001,
+      "max": 0.5839976320000001,
+      "times": [
+        0.5839976320000001,
+        0.5700531320000001,
+        0.5768114320000001,
+        0.5757772320000001,
+        0.5709999320000001
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "command": "jq \".users[] | select(.id == 5555) | .nested_0.nested_1.nested_2\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_100k_3.json\" > nul",
+      "mean": 0.5245111120000001,
+      "stddev": 0.004901409099126478,
+      "median": 0.525234732,
+      "user": 0.456875,
+      "system": 0.0671875,
+      "min": 0.5174670320000001,
+      "max": 0.5301182320000001,
+      "times": [
+        0.525234732,
+        0.5301182320000001,
+        0.5174670320000001,
+        0.527537832,
+        0.5221977320000001
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
