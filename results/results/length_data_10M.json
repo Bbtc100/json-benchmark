@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "command": "java -jar \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\json_bench_java\\target\\json_bench_java-1.0-SNAPSHOT.jar\" \"single\" \"length\" \"C:\\Users\\barcs\\Documents\\GitHub\\json-benchmark\\data\\data_10M.json\" \".users\" > nul",
+      "mean": 3.36125628,
+      "stddev": 0.1467593820236954,
+      "median": 3.2741514,
+      "user": 3.3303125000000002,
+      "system": 0.8481250000000001,
+      "min": 3.2415981,
+      "max": 3.5874311999999997,
+      "times": [
+        3.2712247,
+        3.2741514,
+        3.5874311999999997,
+        3.2415981,
+        3.431876
+      ],
+      "memory_usage_byte": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

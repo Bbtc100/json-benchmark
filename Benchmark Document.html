@@ -71,6 +71,17 @@
     .spacer {
         height: 10px;
     }
+
+    .insight {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-left: 4px solid #4a90e2;
+        background: #f7faff;
+        border-radius: 6px;
+        color: #1f2a37;
+        line-height: 1.5;
+        font-size: 0.95rem;
+    }
 </style>
 </head>
 
@@ -87,9 +98,6 @@
         </p>
         <p class="note">
             The benchmark focuses on common JSON processing operations such as filtering, mapping, and length calculation on generated datasets of varying sizes and nesting depths.
-        </p>
-        <p class="note">
-            Note: Benchmark results are <b>not</b> representative at this time.
         </p>
     </div>
 
@@ -198,14 +206,7 @@
 
     <div class="section">
         <h2>Benchmark Environment</h2>
-        
-            The selected software solutions represent different approaches to JSON processing:
-        
-        <ul>
-            <li>The Java implementations are benchmarked using <code>JMH</code></li>
-            <li>The Python implementation is benchmarked using <code>pyperf</code></li>
-            <li>jq is benchmarked using <code>Hyperfine</code></li>
-        </ul>
+            <p>All 3 implementations are benchmarked using <code>Hyperfine</code> with 3 warmup- and 5 benchmark runs.</p>
     </div>
 
     <div class="section">
@@ -247,6 +248,11 @@
                     <td>87 MB</td>
                 </tr>
                 <tr>
+                    <td>Very Large</td>
+                    <td>5M records</td>
+                    <td>440 MB</td>
+                </tr>
+                <tr>
                     <td>Extra Large</td>
                     <td>10M records</td>
                     <td>890 MB</td>
@@ -272,11 +278,11 @@
                 </tr>
                 <tr>
                     <td>filter</td>
-                    <td><code>id &lt; 100</code> | <code>id == 5555</code> | <code>age != 4099</code> | <code>age &gt; 3012</code></td>
+                    <td> <code>id == 5555</code> | <code>age &lt; 23</code></td>
                 </tr>
                 <tr>
                     <td>map</td>
-                    <td>applies the following to every value: <code>+100</code> | <code>4</code> | <code>6</code></td>
+                    <td>applies <code>^6</code> to every numerical value.</td>
                 </tr>
             </tbody>
         </table>
@@ -285,6 +291,7 @@
 
     <div class="section">
     <h2>Benchmark results</h2>
+    <p class="note">The charts use <b>logarithmic</b> y axes.</p>
 
     <details>
         <summary>length</summary>
@@ -294,11 +301,16 @@
         <details>
             <summary>normal</summary>
             <iframe class="chart-frame" src="results/plots/length_normal.html"></iframe>
+
+            <p class="insight">This is the simplest operation. On the small file, jq is much faster, than the custom implementations, which is no surprise, since it's implemented in C/Haskell and is well optimized. It's 10 times faster than the Java implementations, which are slowed down by the JVM startup. Python is faster on the small file than Java, probably because its startup is faster, than JVM, and the operation is not difficult/long enough to make a difference.</p>
+            <p class="insight">On larger files jq interestingly falls behind, and the single-core implementation of Java starts to take lead, with the multi-threaded catching up, since the thread overhead is still dominating here. Python is also slowly falling behind as the file sizes increase.</p>
         </details>
 
         <details>
             <summary>nested</summary>
             <iframe class="chart-frame" src="results/plots/length_nested.html"></iframe>
+
+            <p class="insight">Here, using the nested structures, we can see similar differences between the languages. We see pretty small differences on smaller files and on the larger file about 50% runtime increase in Java, and 100% runtime increase in the other two compared to the non-nested json files.</p>
         </details>
     </details>
 
@@ -312,11 +324,19 @@
         <details>
             <summary>normal</summary>
             <iframe class="chart-frame" src="results/plots/filter_age_normal.html"></iframe>
+
+            <p class="insight">This operation is already more difficult, than the length one. The small file size still produces a similar result, but as the size increases, we se different results.</p>
+            <p class="insight">JQ is falling behind by a lot, in my opinion because it's much more versatile, than the custom software.</p>
+            <p class="insight">Especially as the file sizes increase, we see the multi-threaded implementation starts outperforming the other ones. It takes time to split and merge the tasks, manage the threads, but with more operations to complete, multiple threads could still finish the task faster, than just 1 thread working on them. On the file with 5 million records, it's already 50% faster, than the single-threaded equivalent.</p>
+            <p class="insight">Here we can start noticing the difference between a compiled, and an interpreted language as well. At 1 million records, the Java implementation is already almost 4 times faster, and this difference increases quickly with size.</p>
         </details>
 
         <details>
             <summary>nested</summary>
             <iframe class="chart-frame" src="results/plots/filter_age_nested.html"></iframe>
+
+            <p class="insight">The differences between the different implementations are very similar to the non-nested ones again.</p>
+            <p class="insight">Runtimes are slower, but only by ~30% at 1 million records.</p>
         </details>
     </details>
 
@@ -330,47 +350,15 @@
         <details>
             <summary>normal</summary>
             <iframe class="chart-frame" src="results/plots/filter_id_normal.html"></iframe>
+
+            <p class="insight">Here we have a simpler operation, than the previous one. This one searches for a specific ID, whereas the previous one selected every record whith an age &lt; 23. This makes the results a bit more similar to the length results.</p>
+            <p class="insight">On the small file, jq is again a lot faster, than the custom implementations. On larger files, the Java implementations start to take the lead, and interestingly the multi-threaded one is already the fastest at 1 million records. At 5 million records, the differences already become very large, with the multi-threaded Java being ~8 times faster than the Python.</p>
         </details>
 
         <details>
             <summary>nested</summary>
             <iframe class="chart-frame" src="results/plots/filter_id_nested.html"></iframe>
-        </details>
-    </details>
-
-    <div class="spacer"></div>
-
-    <details>
-        <summary>map_div4</summary>
-
-        <div class="spacer"></div>
-
-        <details>
-            <summary>normal</summary>
-            <iframe class="chart-frame" src="results/plots/map_div4_normal.html"></iframe>
-        </details>
-
-        <details>
-            <summary>nested</summary>
-            <iframe class="chart-frame" src="results/plots/map_div4_nested.html"></iframe>
-        </details>
-    </details>
-
-    <div class="spacer"></div>
-
-    <details>
-        <summary>map_plus100</summary>
-
-        <div class="spacer"></div>
-
-        <details>
-            <summary>normal</summary>
-            <iframe class="chart-frame" src="results/plots/map_plus100_normal.html"></iframe>
-        </details>
-
-        <details>
-            <summary>nested</summary>
-            <iframe class="chart-frame" src="results/plots/map_plus100_nested.html"></iframe>
+            <p class="insight">With the nested structure, we see very similar differences between the languages again, with a noticable runtime increase, especially for JQ and Python on larger files.</p>
         </details>
     </details>
 
@@ -384,11 +372,17 @@
         <details>
             <summary>normal</summary>
             <iframe class="chart-frame" src="results/plots/map_pow6_normal.html"></iframe>
+
+            <p class="insight">This is the most computationally intensive operation, and we notice the multi-threaded implementation's advantage even more quickly. On larger files the differences become very significant, with the multi-threaded being almost 4 times as fast as the single-threaded one at 5 million records.</p>
+            <p class="insight">JQ struggled from the start compared to my implementations, because I could optimize them for this specific task, whereas JQ is much more versatile. There are very significant differences, that are only getting bigger as the file sizes increase.</p>
+            <p class="insight">I found it interesting, that at 100k records, the Python implementation was still faster, than the Java ones. This changed as the files got larger, with Python being 50% slower compared to Java at 5 million records.</p>
         </details>
 
         <details>
             <summary>nested</summary>
             <iframe class="chart-frame" src="results/plots/map_pow6_nested.html"></iframe>
+
+            <p class="insight">The nested structure shows similar results, as all the previous ones again. Here, Python was already slower at 100k records, than the Java ones. The Python implementation saw a larger runtime increase, than the Java implementations.</p>
         </details>
     </details>
 
@@ -396,11 +390,24 @@
 
     <div class="section">
         <h2>Conclusions</h2>
-        <p class="note">Since the results are not representative, it would be unfair to draw any concrete conclusions, however we can still compare how each implementation's runtime changed based on the dataset and the operations, which it had to do.</p>
-        <p class="note">Looking at the <code>filter</code> operations, surprisingly the single-threaded implementation proved to be the faster one.</p>
-        <p class="note">The non-nested <code>map</code> operations show that the multi-threaded Java implementations are noticably faster. With nested structures this difference reduces, but single-threaded is still consistently slower.</p>
-        <p class="note">On the large (10M record) datasets we can see an expected speed difference between the single- and multi-threaded implementations in the non-nested filter_id, and map operations. Nested structures were much closer in runtime.</p>
-        <p class="note">Overall the 3 level nested structure seems to slow down the runtime by roughly 2 times, though this is not consistent throughout the measurements.</p>
+        <p>Generally Java outperforms Python and jq on the larger datasets, with jq being the fastest on small datasets, except with the last operation. Python is competitive on small files, where the JVM startup time matters more, than the processing time. On medium datasets, Python tends to be similar to Java. With the map operation, which is computationally heavy, jq&apos;s performance degraded exponentially as dataset sizes increased.</p>
+        <br>
+        <p>Nested datasets consistently increased runtime for all implementations, but the impact was uneven:</p>
+        <ul>
+            <li>Java shows moderate overhead, approximately 10-40% increase depending on operation.</li>
+            <li>Python shows larger degradation, especially in map operation, with a 3&times; runtime increase on larger datasets.</li>
+            <li>jq&apos;s runtime increased by roughly 2&times;</li>
+        </ul>
+        <br>
+        <p>The benchmarks show that a multi-threaded implementation provides clear benefit on larger datasets, but on smaller ones, the single-threaded is equal or faster due to thread overhead. Compute-heavy operations show larger performance differences in favor of the multi-threaded implementation.</p>
+        <br>
+        <p>Key takeaways:</p>
+        <ul>
+            <li>Java showed the most consistent scaling across the different workloads and dataset sizes.</li>
+            <li>Python is competent under small to medium workloads, &nbsp;but falls behind quickly as datasets and operation difficulty increase.</li>
+            <li>jq is very good for lightweight transformations, but it&apos;s not viable for large-scale operations.</li>
+            <li>Nesting provided interesting, non-linear performance degradations.</li>
+        </ul>
     </div>
 
 </div>
