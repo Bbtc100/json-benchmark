@@ -30,15 +30,9 @@ The following JSON processing tasks are implemented (for now):
 
 ## Benchmarking Methodology
 
-Performance is evaluated using:
+All benchmarks are evaluated using `Hyperfine`.
 
-- **Java:** `JMH`
-- **Python:** `pyperf`
-- **jq:** `Hyperfine`
-
-All benchmarks will be evaluated using `Hyperfine` soon.
-
-Benchmarks will be executed on **synthetically generated JSON datasets** of varying sizes.
+Benchmarks are executed on **synthetically generated JSON datasets** of varying sizes.
 
 ## Objective
 
@@ -46,4 +40,4 @@ The project aims to provide insights into:
 
 - Performance differences between single-threaded and multi-threaded processing
 - Impact of implementation language
-- How custom solutions compare to `jq` under controlled conditions
+- How custom solutions compare to `jq` **under controlled conditions**
